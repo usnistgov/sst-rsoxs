@@ -25,8 +25,8 @@ class CustomImageItem(ImageItem):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Disable Selectable and Movable flags to prevent accepting mousePressEvent
-        self.setFlag(pg.QtWidgets.QGraphicsItem.ItemIsSelectable, False)
-        self.setFlag(pg.QtWidgets.QGraphicsItem.ItemIsMovable, False)
+        # self.setFlag(pg.QtWidgets.QGraphicsItem.ItemIsSelectable, False)
+        # self.setFlag(pg.QtWidgets.QGraphicsItem.ItemIsMovable, False)
 
     def mouseClickEvent(self, event):
         if event.button() == pg.QtCore.Qt.MouseButton.LeftButton:
@@ -37,8 +37,16 @@ class CustomImageItem(ImageItem):
     def mousePressEvent(self, event):
         """Override to not accept press events, allowing scroll area events to work."""
         # Don't accept the press event to allow scroll area panning
+        print("CustomImageItem.mousePressEvent")
         event.ignore()
-        super().mousePressEvent(event)
+        # super().mousePressEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        """Override to not accept release events, allowing scroll area events to work."""
+        # Don't accept the release event to allow scroll area panning
+        print("CustomImageItem.mouseReleaseEvent")
+        event.ignore()
+        # super().mouseReleaseEvent(event)
 
 
 class PyHyperWorker(QThread):
@@ -78,8 +86,16 @@ class BestImageSelector(QWidget):
         self.select_button.setCheckable(True)
         self.select_button.clicked.connect(self._toggle_selection_mode)
 
+        self.clear_button = QPushButton("Clear Selection")
+        self.clear_button.clicked.connect(self._clear_selection)
+        self.clear_button.setEnabled(False)
+
         layout.addWidget(self.select_button)
         layout.addStretch()
+
+    def _clear_selection(self):
+        """Clear the selection."""
+        self.spiral_widget.clear_image_selection()
 
     def _toggle_selection_mode(self):
         """Toggle between selection mode and normal mode."""
@@ -87,10 +103,13 @@ class BestImageSelector(QWidget):
 
         if self.selecting_mode:
             self.select_button.setText("Use Selected Images")
+            self.clear_button.setEnabled(True)
+
             if self.spiral_widget:
                 self.spiral_widget.enable_image_selection()
         else:
             self.select_button.setText("Select Best Image")
+            self.clear_button.setEnabled(False)
             if self.spiral_widget:
                 self.spiral_widget.disable_image_selection()
 
@@ -152,10 +171,16 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         self.grid_container = QWidget()
         self.grid_container.setStyleSheet("background-color: white;")  # White background
         # Make grid container transparent to mouse events for panning
-        self.grid_container.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        # self.grid_container.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        # Override mouse events to track propagation
+        # self.grid_container.mousePressEvent = self._grid_container_mouse_press
+        # self.grid_container.mouseReleaseEvent = self._grid_container_mouse_release
 
         self.grid_layout = QGridLayout(self.grid_container)
         self.grid_layout.setSpacing(15)  # Consistent spacing between plots
+        # Override grid layout mouse events to track propagation
+        # self.grid_layout.mousePressEvent = self._grid_layout_mouse_press
+        # self.grid_layout.mouseReleaseEvent = self._grid_layout_mouse_release
         self.grid_layout.setContentsMargins(10, 10, 10, 10)  # Margin around the grid
 
         # Set the grid container as the scroll area widget
@@ -273,7 +298,7 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
 
                 # Create image item
                 image_data = np.array(image)
-                image_item = CustomImageItem(image_data)
+                image_item = pg.ImageItem(image_data)  # Use regular ImageItem instead of CustomImageItem
 
                 # Set image bounds
                 x_min, x_max = self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]
@@ -308,6 +333,15 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
                 self.plot_widgets[indexImage] = plot_widget
                 self.image_items[indexImage] = image_item
 
+                # Override plot widget mouse events for panning and selection
+                plot_widget.mousePressEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_press(
+                    event, pw
+                )
+                plot_widget.mouseReleaseEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_release(
+                    event, pw
+                )
+                plot_widget.mouseMoveEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_move(event, pw)
+
                 # Add to grid
                 self.grid_layout.addWidget(plot_widget, indexPlotRow, indexPlotColumn)
 
@@ -339,70 +373,21 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         self.selected_images.clear()
         self._clear_highlights()
         print("enable_image_selection")
-        # Connect mouse release events to all plot widgets
-        for image_index, image_item in self.image_items.items():
-            # Create a bound method for this specific image item
-            def create_click_handler(img_idx):
-                def handler(event):
-                    self._on_plot_clicked(event, img_idx)
-
-                return handler
-
-            # Store the connection for later disconnection
-            handler = create_click_handler(image_index)
-            self.signal_connections[image_index] = handler
-            image_item.sigMouseClicked.connect(handler)
+        # Image selection is now handled by plot widget mouse events
 
     def disable_image_selection(self):
         """Disable image selection mode."""
-        # Disconnect mouse release events using stored connections
         print("disable_image_selection")
-        for image_index, image_item in self.image_items.items():
-            if image_index in self.signal_connections:
-                try:
-                    handler = self.signal_connections[image_index]
-                    image_item.sigMouseClicked.disconnect(handler)
-                except Exception as e:
-                    print(f"Error disconnecting signal for image {image_index}: {e}")
-
-        # Clear the stored connections
-        self.signal_connections.clear()
 
         # Print selected images and clear highlights
         if self.selected_images:
             selected_list = sorted(list(self.selected_images))
             print(f"Selected images: {selected_list}")
+            self.clear_image_selection()
+
+    def clear_image_selection(self):
         self._clear_highlights()
         self.selected_images.clear()
-
-    def _on_plot_clicked(self, event, imageIndex):
-        """Handle mouse click events on plot widgets during selection mode."""
-        # Only handle left mouse button clicks
-        print("on_plot_clicked")
-        if event.button() != pg.QtCore.Qt.MouseButton.LeftButton:
-            return
-
-        # Get the plot ID from the widget
-        image_number = imageIndex
-        plot_widget = self.plot_widgets[image_number]
-
-        # Toggle selection
-        if image_number in self.selected_images:
-            print(f"Removing image {image_number} from selection")
-            self.selected_images.remove(image_number)
-            self._unhighlight_plot(plot_widget)
-        else:
-            print(f"Adding image {image_number} to selection")
-            self.selected_images.add(image_number)
-            self._highlight_plot(plot_widget)
-
-        # Update button text
-        if hasattr(self, "plot_controls"):
-            count = len(self.selected_images)
-            if count == 0:
-                self.plot_controls.select_button.setText("Use Selected Images")
-            else:
-                self.plot_controls.select_button.setText(f"Use Selected Images ({count})")
 
     def _highlight_plot(self, plot_widget):
         """Highlight a plot by changing its border color."""
@@ -441,31 +426,123 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         self.selected_images.clear()
         self.signal_connections.clear()
 
+    def _handle_plot_click(self, plot_widget):
+        """Handle click on a plot widget for image selection."""
+        # Find the image number for this plot widget
+        image_number = None
+        for img_num, pw in self.plot_widgets.items():
+            if pw == plot_widget:
+                image_number = img_num
+                break
+
+        if image_number is not None:
+            # Toggle selection
+            if image_number in self.selected_images:
+                print(f"Removing image {image_number} from selection")
+                self.selected_images.remove(image_number)
+                self._unhighlight_plot(plot_widget)
+            else:
+                print(f"Adding image {image_number} to selection")
+                self.selected_images.add(image_number)
+                self._highlight_plot(plot_widget)
+
+            # Update button text
+            if hasattr(self, "plot_controls"):
+                count = len(self.selected_images)
+                if count == 0:
+                    self.plot_controls.select_button.setText("Use Selected Images")
+                else:
+                    self.plot_controls.select_button.setText(f"Use Selected Images ({count})")
+
+    def _grid_container_mouse_press(self, event):
+        """Track mouse press events on grid container."""
+        print(f"grid_container.mousePressEvent: pos={event.pos()}")
+        event.ignore()  # Let event continue to children
+
+    def _grid_container_mouse_release(self, event):
+        """Track mouse release events on grid container."""
+        print(f"grid_container.mouseReleaseEvent: pos={event.pos()}")
+        event.ignore()  # Let event continue to children
+
+    def _grid_layout_mouse_press(self, event):
+        """Track mouse press events on grid layout."""
+        print(f"grid_layout.mousePressEvent: pos={event.pos()}")
+        event.ignore()  # Let event continue to children
+
+    def _grid_layout_mouse_release(self, event):
+        """Track mouse release events on grid layout."""
+        print(f"grid_layout.mouseReleaseEvent: pos={event.pos()}")
+        event.ignore()  # Let event continue to children
+
+    def _plot_widget_mouse_press(self, event, plot_widget):
+        """Handle mouse press events on plot widgets."""
+        if event.button() == Qt.LeftButton:
+            # Store the press position and start time for click detection
+            plot_widget._press_pos = event.pos()
+            plot_widget._press_time = event.timestamp()
+            plot_widget._has_moved = False
+            # Let event pass through for panning
+            event.ignore()
+        else:
+            event.ignore()
+
+    def _plot_widget_mouse_move(self, event, plot_widget):
+        """Handle mouse move events on plot widgets."""
+        if hasattr(plot_widget, "_press_pos") and plot_widget._press_pos is not None:
+            # Check if mouse has moved significantly from press position
+            delta = (event.pos() - plot_widget._press_pos).manhattanLength()
+            if delta > 5:  # Threshold for considering it a move vs click
+                plot_widget._has_moved = True
+        event.ignore()
+
+    def _plot_widget_mouse_release(self, event, plot_widget):
+        """Handle mouse release events on plot widgets."""
+        if event.button() == Qt.LeftButton:
+            if hasattr(plot_widget, "_has_moved") and not plot_widget._has_moved:
+                # This was a click, not a drag
+                if hasattr(self, "plot_controls") and self.plot_controls.selecting_mode:
+                    # We're in selection mode, handle image selection
+                    self._handle_plot_click(plot_widget)
+                else:
+                    # Not in selection mode, let event pass through for panning
+                    event.ignore()
+            else:
+                # This was a drag, let event pass through for panning
+                event.ignore()
+
+            # Clear the press state
+            plot_widget._press_pos = None
+            plot_widget._press_time = None
+            plot_widget._has_moved = False
+        else:
+            event.ignore()
+
     def eventFilter(self, obj, event):
         """Event filter for smooth panning of the scroll area."""
-        if obj == self.scroll_area.viewport():
-            if event.type() == QEvent.MouseButtonPress:
-                if event.button() == Qt.LeftButton:
-                    self.scroll_area.viewport().setCursor(Qt.ClosedHandCursor)
-                    self._drag_start_pos = event.pos()
-                    self._dragging = True
-                    return True
-            elif event.type() == QEvent.MouseMove:
-                if hasattr(self, "_dragging") and self._dragging:
-                    delta = event.pos() - self._drag_start_pos
-                    self.scroll_area.horizontalScrollBar().setValue(
-                        self.scroll_area.horizontalScrollBar().value() - delta.x()
-                    )
-                    self.scroll_area.verticalScrollBar().setValue(
-                        self.scroll_area.verticalScrollBar().value() - delta.y()
-                    )
-                    self._drag_start_pos = event.pos()
-                    return True
-            elif event.type() == QEvent.MouseButtonRelease:
-                if event.button() == Qt.LeftButton:
-                    self.scroll_area.viewport().setCursor(Qt.OpenHandCursor)
-                    self._dragging = False
-                    return True
+        # if obj == self.scroll_area.viewport():
+        if event.type() == QEvent.MouseButtonPress:
+            if event.button() == Qt.LeftButton:
+                self.scroll_area.viewport().setCursor(Qt.ClosedHandCursor)
+                self._drag_start_pos = event.pos()
+                self._dragging = True
+                return True
+        elif event.type() == QEvent.MouseMove:
+            if hasattr(self, "_dragging") and self._dragging:
+                # print("MouseMove")
+                delta = event.pos() - self._drag_start_pos
+                self.scroll_area.horizontalScrollBar().setValue(
+                    self.scroll_area.horizontalScrollBar().value() - delta.x()
+                )
+                self.scroll_area.verticalScrollBar().setValue(
+                    self.scroll_area.verticalScrollBar().value() - delta.y()
+                )
+                self._drag_start_pos = event.pos()
+                return True
+        elif event.type() == QEvent.MouseButtonRelease:
+            if event.button() == Qt.LeftButton:
+                self.scroll_area.viewport().setCursor(Qt.OpenHandCursor)
+                self._dragging = False
+                return True
         return super().eventFilter(obj, event)
 
     def draw(self):
