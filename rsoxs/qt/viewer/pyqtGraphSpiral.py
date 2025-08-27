@@ -341,6 +341,9 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
                     event, pw
                 )
                 plot_widget.mouseMoveEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_move(event, pw)
+                plot_widget.mouseDoubleClickEvent = (
+                    lambda event, pw=plot_widget: self._plot_widget_mouse_double_click(event, pw)
+                )
 
                 # Add to grid
                 self.grid_layout.addWidget(plot_widget, indexPlotRow, indexPlotColumn)
@@ -426,6 +429,86 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         self.selected_images.clear()
         self.signal_connections.clear()
 
+    def _open_plot_popup(self, plot_widget):
+        print("open_plot_popup")
+        """Open a popup window with a larger version of the plot."""
+        # Find the image number for this plot widget
+        image_number = None
+        for img_num, pw in self.plot_widgets.items():
+            if pw == plot_widget:
+                image_number = img_num
+                break
+
+        if image_number is None:
+            print("image_number is None")
+            return
+        print(f"image_number: {image_number}")
+
+        # Create popup window
+        popup = QWidget(parent=self)  # Set parent to ensure proper window management
+        popup.setWindowTitle(f"Image {image_number} - Detailed View")
+        popup.setGeometry(100, 100, 800, 600)
+        # Set window flags to make it a proper popup window
+        popup.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+
+        # Create layout
+        layout = QVBoxLayout(popup)
+
+        # Create a new plot widget with full controls
+        detailed_plot = pg.PlotWidget()
+        detailed_plot.setAspectLocked(False)
+
+        # Enable full mouse controls for panning and zooming
+        detailed_plot.setMouseEnabled(x=True, y=True)
+
+        # Get the original image data
+        original_image_item = self.image_items[image_number]
+        image_data = original_image_item.image
+
+        # Create new image item for the detailed view
+        detailed_image_item = pg.ImageItem(image_data)
+
+        # Set image bounds
+        x_min, x_max = self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]
+        y_min, y_max = self.limitsInboardOutboardDownUp[2], self.limitsInboardOutboardDownUp[3]
+        detailed_image_item.setRect(pg.QtCore.QRectF(x_min, y_min, x_max - x_min, y_max - y_min))
+
+        # Set color map and levels with log normalization
+        log_data = np.log10(np.maximum(image_data, self.contrastLimits[0]))
+        detailed_image_item.setImage(log_data)
+
+        # Set levels for log-transformed data
+        log_min = np.log10(self.contrastLimits[0])
+        log_max = np.log10(self.contrastLimits[1])
+        detailed_image_item.setLevels([log_min, log_max])
+
+        colormap = pg.colormap.get("RdYlBu_r", source="matplotlib")
+        detailed_image_item.setColorMap(colormap)
+
+        # Add image to plot
+        detailed_plot.addItem(detailed_image_item)
+
+        # Set title and labels
+        title = f"Image {image_number}"
+        detailed_plot.setTitle(title, size="14pt", color="k")
+        detailed_plot.setLabel("bottom", "Outboard-inboard (mm)")
+        detailed_plot.setLabel("left", "Down-up (mm)")
+
+        # Set axis limits
+        detailed_plot.setXRange(x_min, x_max)
+        detailed_plot.setYRange(y_min, y_max)
+
+        # Style axes
+        for axis_name in ["left", "bottom", "top", "right"]:
+            axis = detailed_plot.getAxis(axis_name)
+            axis.setPen(pg.mkPen(color="k", width=1))
+
+        # Add plot to layout
+        layout.addWidget(detailed_plot)
+
+        # Show the popup
+        popup.show()
+
     def _handle_plot_click(self, plot_widget):
         """Handle click on a plot widget for image selection."""
         # Find the image number for this plot widget
@@ -483,6 +566,15 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
             plot_widget._has_moved = False
             # Let event pass through for panning
             event.ignore()
+        else:
+            event.ignore()
+
+    def _plot_widget_mouse_double_click(self, event, plot_widget):
+        """Handle double-click events on plot widgets to open popup."""
+        print("plot_widget_mouse_double_click")
+        if event.button() == Qt.LeftButton:
+            self._open_plot_popup(plot_widget)
+            event.accept()
         else:
             event.ignore()
 
