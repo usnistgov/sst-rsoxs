@@ -11,12 +11,78 @@ from qtpy.QtWidgets import (
     QPushButton,
     QHBoxLayout,
     QGridLayout,
+    QLabel,
+    QFileDialog,
 )
 from qtpy.QtCore import Qt
 import pyqtgraph as pg
 from pyqtgraph import ImageItem
 import numpy as np
 import PyHyperScattering as phs
+from rsoxs.configuration_setup.configuration_load_save_sanitize import (
+    save_configuration_spreadsheet_local,
+    load_configuration_spreadsheet_local,
+)
+import os
+import copy
+
+
+def pick_locations_from_spirals(
+    locations_selected_indices,
+    scan_spiral,
+    configuration,
+):
+    """
+    Intended to be an updated, data-security-compliant version of `resolve_spirals` function (used pre-2025).
+    This workflow is meant to run in a python notebook.
+    Unlike the legacy `resolve_spirals` function, the current function is intended to run for a single sample and can be rerun for all samples individually.  This way, not all spirals have to be resolved in one go.
+
+    Parameters:
+        locations_selected_indices: list of int values
+            List of one or multiple locations on the sample.
+        scan_spiral: xarray.dataarray
+            Scan data that has been formatted using PyHyperScattering with dims = ["time"].
+        configuration: list of dictionaries
+            Configuration variable with the format of `rsoxs_config["bar"]` in which sample positions will be updated.
+
+    Returns:
+        configuration: list of dictionaries
+            Configuration variable with the format of `rsoxs_config["bar"]` in which sample positions have been updated.
+    """
+
+    sample_id = scan_spiral.attrs["sample_name"]
+    locations_outboard_inboard = scan_spiral.attrs["sam_x"]
+    locations_down_up = scan_spiral.attrs["sam_y"]
+    locations_upstream_downstream = scan_spiral.attrs["sam_z"]
+    locations_theta = scan_spiral.attrs["sam_th"]
+
+    ## Find the sample to update location
+    ## TODO: probably better to deep copy configuration and search through the copy while updating the original configuration?
+    for index_configuration, sample in enumerate(configuration):
+        if sample["sample_id"] == sample_id:
+            print(f"Found sample {sample_id} in configuration")
+            # location_initial = sample["location"]
+            for index_location_selected_indices, location_selected_indices in enumerate(
+                locations_selected_indices
+            ):
+                # location_new_formatted = copy.deepcopy(location_initial)
+                location_new_formatted = [
+                    {"motor": "x", "position": locations_outboard_inboard[location_selected_indices]},
+                    {"motor": "y", "position": locations_down_up[location_selected_indices]},
+                    {"motor": "th", "position": locations_theta},
+                    {"motor": "z", "position": locations_upstream_downstream},
+                ]
+                if index_location_selected_indices == 0:
+                    sample["location"] = location_new_formatted
+                else:
+                    sample_new = copy.deepcopy(sample)
+                    sample_new["location"] = location_new_formatted
+
+                    sample_new["sample_name"] += f"_{index_location_selected_indices}"
+                    sample_new["sample_id"] += f"_{index_location_selected_indices}"
+                    configuration.append(sample_new)
+            break  ## Exit after the sample is found and do not spend time looking through the other samples
+    return configuration
 
 
 class CustomImageItem(ImageItem):
@@ -79,9 +145,12 @@ class BestImageSelector(QWidget):
 
     def _setup_ui(self):
         """Set up the user interface."""
-        layout = QHBoxLayout(self)
+        layout = QVBoxLayout(self)
         layout.setContentsMargins(5, 5, 5, 5)
 
+        self.load_configuration_button = QPushButton("Load File")
+        self.configuration_label = QLabel("File: None")
+        self.load_configuration_button.clicked.connect(self._load_configuration)
         self.select_button = QPushButton("Select Best Image")
         self.select_button.setCheckable(True)
         self.select_button.clicked.connect(self._toggle_selection_mode)
@@ -90,12 +159,32 @@ class BestImageSelector(QWidget):
         self.clear_button.clicked.connect(self._clear_selection)
         self.clear_button.setEnabled(False)
 
-        layout.addWidget(self.select_button)
-        layout.addStretch()
+        layout1 = QHBoxLayout()
+        layout2 = QHBoxLayout()
+
+        layout1.addWidget(self.load_configuration_button)
+        layout1.addWidget(self.configuration_label)
+
+        layout2.addWidget(self.select_button)
+        layout2.addWidget(self.clear_button)
+        layout.addLayout(layout1)
+        layout.addLayout(layout2)
+
+    def _load_configuration(self):
+        filepicker = QFileDialog()
+        filepicker.setNameFilter("Configuration files (*.xlsx)")
+        filepicker.setFileMode(QFileDialog.FileMode.ExistingFile)
+        filepicker.setWindowTitle("Load File")
+        if filepicker.exec_():
+            filename = os.path.basename(filepicker.selectedFiles()[0])
+            self.configuration_label.setText(f"File: {filename}")
+            self.configuration_file = filepicker.selectedFiles()[0]
+            self.configuration = load_configuration_spreadsheet_local(self.configuration_file)
 
     def _clear_selection(self):
         """Clear the selection."""
         self.spiral_widget.clear_image_selection()
+        self.select_button.setText("Use Selected Images")
 
     def _toggle_selection_mode(self):
         """Toggle between selection mode and normal mode."""
@@ -111,11 +200,27 @@ class BestImageSelector(QWidget):
             self.select_button.setText("Select Best Image")
             self.clear_button.setEnabled(False)
             if self.spiral_widget:
+                self.update_configuration()
                 self.spiral_widget.disable_image_selection()
 
     def set_spiral_widget(self, spiral_widget):
         """Set the spiral widget to control."""
         self.spiral_widget = spiral_widget
+
+    def update_configuration(self):
+        if self.spiral_widget.selected_images:
+            scan_id = self.spiral_widget.active_run.scan_id
+            print(f"update_configuration for {scan_id}")
+
+            scan = self.spiral_widget.data_arrays[scan_id]
+            configuration = pick_locations_from_spirals(
+                self.spiral_widget.selected_images, scan, self.configuration
+            )
+            directory = os.path.dirname(self.configuration_file)
+            print(f"Saving configuration to {directory}/SpiralSpotsPicked.xlsx")
+            save_configuration_spreadsheet_local(
+                configuration, file_label="SpiralSpotsPicked", file_path=directory
+            )
 
 
 class PyQtGraphSpiralWidget(ImageGridWidget):
@@ -126,8 +231,10 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         self.selected_images = set()
         self.plot_widgets = {}  # Store individual plot widgets
         self.image_items = {}  # Store image items for highlighting
+        self.original_image_data = {}  # Store original image data for popup creation
         self.signal_connections = {}  # Track signal connections for proper cleanup
         self.index_to_coords = {}  # Store image index to coordinates
+        self.active_run = None
         # Override parent class methods that expect matplotlib canvas
         self.canvas = None  # No matplotlib canvas in PyQtGraph version
         # PyQtGraph configuration
@@ -177,7 +284,7 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         # self.grid_container.mouseReleaseEvent = self._grid_container_mouse_release
 
         self.grid_layout = QGridLayout(self.grid_container)
-        self.grid_layout.setSpacing(15)  # Consistent spacing between plots
+        self.grid_layout.setSpacing(10)  # Consistent spacing between plots
         # Override grid layout mouse events to track propagation
         # self.grid_layout.mousePressEvent = self._grid_layout_mouse_press
         # self.grid_layout.mouseReleaseEvent = self._grid_layout_mouse_release
@@ -232,10 +339,11 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
     def _update_grid(self):
         if len(self.run_list_model.visible_models) == 0:
             print("No visible runs")
+            self.active_run = None
             return
 
         run = self.run_list_model.visible_models[0]
-
+        self.active_run = run
         if run.scan_id in self.data_arrays:
             scan = self.data_arrays[run.scan_id]
             print(f"Data for run {run.scan_id} loaded")
@@ -296,27 +404,9 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
                 # Style the plot
                 self._style_pyqtgraph_plot(plot_widget, indexPlotRow, indexPlotColumn, numberRows, numberColumns)
 
-                # Create image item
+                # Create image item using common method
                 image_data = np.array(image)
-                image_item = pg.ImageItem(image_data)  # Use regular ImageItem instead of CustomImageItem
-
-                # Set image bounds
-                x_min, x_max = self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]
-                y_min, y_max = self.limitsInboardOutboardDownUp[2], self.limitsInboardOutboardDownUp[3]
-                image_item.setRect(pg.QtCore.QRectF(x_min, y_min, x_max - x_min, y_max - y_min))
-
-                # Set color map and levels with log normalization
-                # Apply log transformation to the data
-                log_data = np.log10(np.maximum(image_data, self.contrastLimits[0]))
-                image_item.setImage(log_data)
-
-                # Set levels for log-transformed data
-                log_min = np.log10(self.contrastLimits[0])
-                log_max = np.log10(self.contrastLimits[1])
-                image_item.setLevels([log_min, log_max])
-
-                colormap = pg.colormap.get("RdYlBu_r", source="matplotlib")
-                image_item.setColorMap(colormap)
+                image_item = self._create_image_item(image_data)
 
                 # Add image to plot
                 plot_widget.addItem(image_item)
@@ -332,6 +422,8 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
                 self.index_to_coords[indexImage] = (indexPlotRow, indexPlotColumn)
                 self.plot_widgets[indexImage] = plot_widget
                 self.image_items[indexImage] = image_item
+                # Store original image data for popup creation
+                self.original_image_data[indexImage] = image_data
 
                 # Override plot widget mouse events for panning and selection
                 plot_widget.mousePressEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_press(
@@ -425,12 +517,36 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
 
         self.plot_widgets.clear()
         self.image_items.clear()
+        self.original_image_data.clear()
         self.index_to_coords.clear()
         self.selected_images.clear()
         self.signal_connections.clear()
 
+    def _create_image_item(self, image_data):
+        """Create and configure an ImageItem with common settings."""
+        # Apply log transformation to the data
+        log_data = np.log10(np.maximum(image_data, self.contrastLimits[0]))
+
+        # Create image item
+        image_item = pg.ImageItem(log_data)
+
+        # Set image bounds
+        x_min, x_max = self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]
+        y_min, y_max = self.limitsInboardOutboardDownUp[2], self.limitsInboardOutboardDownUp[3]
+        image_item.setRect(pg.QtCore.QRectF(x_min, y_min, x_max - x_min, y_max - y_min))
+
+        # Set levels for log-transformed data
+        log_min = np.log10(self.contrastLimits[0])
+        log_max = np.log10(self.contrastLimits[1])
+        image_item.setLevels([log_min, log_max])
+
+        # Set colormap
+        colormap = pg.colormap.get("RdYlBu_r", source="matplotlib")
+        image_item.setColorMap(colormap)
+
+        return image_item
+
     def _open_plot_popup(self, plot_widget):
-        print("open_plot_popup")
         """Open a popup window with a larger version of the plot."""
         # Find the image number for this plot widget
         image_number = None
@@ -440,16 +556,14 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
                 break
 
         if image_number is None:
-            print("image_number is None")
             return
-        print(f"image_number: {image_number}")
 
         # Create popup window
         popup = QWidget(parent=self)  # Set parent to ensure proper window management
         popup.setWindowTitle(f"Image {image_number} - Detailed View")
         popup.setGeometry(100, 100, 800, 600)
         # Set window flags to make it a proper popup window
-        popup.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
+        popup.setWindowFlags(Qt.Window)
 
         # Create layout
         layout = QVBoxLayout(popup)
@@ -461,29 +575,9 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         # Enable full mouse controls for panning and zooming
         detailed_plot.setMouseEnabled(x=True, y=True)
 
-        # Get the original image data
-        original_image_item = self.image_items[image_number]
-        image_data = original_image_item.image
-
-        # Create new image item for the detailed view
-        detailed_image_item = pg.ImageItem(image_data)
-
-        # Set image bounds
-        x_min, x_max = self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]
-        y_min, y_max = self.limitsInboardOutboardDownUp[2], self.limitsInboardOutboardDownUp[3]
-        detailed_image_item.setRect(pg.QtCore.QRectF(x_min, y_min, x_max - x_min, y_max - y_min))
-
-        # Set color map and levels with log normalization
-        log_data = np.log10(np.maximum(image_data, self.contrastLimits[0]))
-        detailed_image_item.setImage(log_data)
-
-        # Set levels for log-transformed data
-        log_min = np.log10(self.contrastLimits[0])
-        log_max = np.log10(self.contrastLimits[1])
-        detailed_image_item.setLevels([log_min, log_max])
-
-        colormap = pg.colormap.get("RdYlBu_r", source="matplotlib")
-        detailed_image_item.setColorMap(colormap)
+        # Get the original image data and create new image item
+        image_data = self.original_image_data[image_number]
+        detailed_image_item = self._create_image_item(image_data)
 
         # Add image to plot
         detailed_plot.addItem(detailed_image_item)
@@ -493,10 +587,6 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         detailed_plot.setTitle(title, size="14pt", color="k")
         detailed_plot.setLabel("bottom", "Outboard-inboard (mm)")
         detailed_plot.setLabel("left", "Down-up (mm)")
-
-        # Set axis limits
-        detailed_plot.setXRange(x_min, x_max)
-        detailed_plot.setYRange(y_min, y_max)
 
         # Style axes
         for axis_name in ["left", "bottom", "top", "right"]:
