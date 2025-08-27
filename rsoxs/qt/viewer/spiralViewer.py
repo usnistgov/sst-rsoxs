@@ -1,7 +1,16 @@
 from nbs_viewer.views.display.plotDisplay import ImageGridDisplay
 from nbs_viewer.views.plot.imageGridWidget import ImageGridWidget
 from qtpy.QtCore import QThread, Signal
-from qtpy.QtWidgets import QListView, QMessageBox, QScrollArea, QVBoxLayout, QWidget, QSizePolicy
+from qtpy.QtWidgets import (
+    QListView,
+    QMessageBox,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+    QSizePolicy,
+    QPushButton,
+    QHBoxLayout,
+)
 from qtpy.QtCore import Qt
 from matplotlib.colors import LogNorm
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT
@@ -30,6 +39,45 @@ class PyHyperWorker(QThread):
             self.error_occurred.emit(error_msg)
 
 
+class BestImageSelector(QWidget):
+    """Control widget for selecting the best image from spiral plots."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.selecting_mode = False
+        self.spiral_widget = None
+        self._setup_ui()
+
+    def _setup_ui(self):
+        """Set up the user interface."""
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)
+
+        self.select_button = QPushButton("Select Best Image")
+        self.select_button.setCheckable(True)
+        self.select_button.clicked.connect(self._toggle_selection_mode)
+
+        layout.addWidget(self.select_button)
+        layout.addStretch()
+
+    def _toggle_selection_mode(self):
+        """Toggle between selection mode and normal mode."""
+        self.selecting_mode = self.select_button.isChecked()
+
+        if self.selecting_mode:
+            self.select_button.setText("Use Selected Images")
+            if self.spiral_widget:
+                self.spiral_widget.enable_image_selection()
+        else:
+            self.select_button.setText("Select Best Image")
+            if self.spiral_widget:
+                self.spiral_widget.disable_image_selection()
+
+    def set_spiral_widget(self, spiral_widget):
+        """Set the spiral widget to control."""
+        self.spiral_widget = spiral_widget
+
+
 class SpiralWidget(ImageGridWidget):
     data_ready = Signal()
 
@@ -43,6 +91,14 @@ class SpiralWidget(ImageGridWidget):
             run = self.run_list_model.available_runs[0]
             self.pyHyperLoader = phs.load.SST1RSoXSDB(catalog=run._catalog)
         self.data_arrays = {}
+        self.selected_images = set()
+        self.original_spine_colors = {}
+
+    def _create_plot_controls(self):
+        """Create the best image selector control widget."""
+        self.plot_controls = BestImageSelector()
+        self.plot_controls.set_spiral_widget(self)
+        return self.plot_controls
 
     def _connect_signals(self):
         super()._connect_signals()
@@ -172,6 +228,9 @@ class SpiralWidget(ImageGridWidget):
         if numberRows > 1 and numberColumns == 1:
             axs = axs.reshape(numberRows, 1)
 
+        # Store axes mapping for click detection
+        self.axes = {}
+
         for indexPlotRow, yMotorPosition in enumerate(scan["sam_y"]):
             for indexPlotColumn, xMotorPosition in enumerate(scan["sam_x"]):
                 image = scan.sel(sam_y=yMotorPosition, sam_x=xMotorPosition, method="nearest")
@@ -186,6 +245,9 @@ class SpiralWidget(ImageGridWidget):
 
                 ## Plot
                 ax = axs[indexPlotRow, indexPlotColumn]
+                # Store the axis with its image number for click detection
+                self.axes[ax] = indexImage
+
                 ax.set_title(
                     (
                         "Image "
@@ -298,6 +360,93 @@ class SpiralWidget(ImageGridWidget):
         ax.set_xlim([self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]])
         ax.set_ylim([self.limitsInboardOutboardDownUp[2], self.limitsInboardOutboardDownUp[3]])
 
+    def enable_image_selection(self):
+        """Enable image selection mode."""
+        if hasattr(self, "figure"):
+            self.canvas.mpl_connect("button_press_event", self._on_plot_click)
+            # Clear any previous selections
+            self.selected_images.clear()
+            self._clear_highlights()
+
+    def disable_image_selection(self):
+        """Disable image selection mode."""
+        if hasattr(self, "figure"):
+            self.canvas.mpl_disconnect("button_press_event")
+            # Print selected images and clear highlights
+            if self.selected_images:
+                selected_list = sorted(list(self.selected_images))
+                print(f"Selected images: {selected_list}")
+            self._clear_highlights()
+            self.selected_images.clear()
+
+    def _on_plot_click(self, event):
+        """Handle clicks on subplots during selection mode."""
+        print(f"_on_plot_click: {event}")
+        if not event.inaxes:
+            return
+
+        # Check if the clicked axis is in our mapping
+        if hasattr(self, "axes") and event.inaxes in self.axes:
+            image_number = self.axes[event.inaxes]
+
+            # Toggle selection
+            if image_number in self.selected_images:
+                print(f"Removing image {image_number} from selection")
+                self.selected_images.remove(image_number)
+                self._unhighlight_axis(event.inaxes)
+            else:
+                print(f"Adding image {image_number} to selection")
+                self.selected_images.add(image_number)
+                self._highlight_axis(event.inaxes)
+
+            # Update button text to show count
+            if hasattr(self, "plot_controls"):
+                print(f"Updating button text")
+                count = len(self.selected_images)
+                if count == 0:
+                    self.plot_controls.select_button.setText("Use Selected Images")
+                else:
+                    self.plot_controls.select_button.setText(f"Use Selected Images ({count})")
+            print(f"Done")
+
+    def _highlight_axis(self, ax):
+        """Highlight an axis by changing its border color."""
+        if ax not in self.original_spine_colors:
+            # Store original colors
+            self.original_spine_colors[ax] = {}
+            for spine_name in ["top", "bottom", "left", "right"]:
+                self.original_spine_colors[ax][spine_name] = ax.spines[spine_name].get_edgecolor()
+
+        # Set highlight color (bright red)
+        highlight_color = (1, 0, 0, 1)  # Red
+        for spine_name in ["top", "bottom", "left", "right"]:
+            ax.spines[spine_name].set_color(highlight_color)
+            ax.spines[spine_name].set_linewidth(3)
+
+        # Only redraw this specific axis
+        ax.figure.canvas.draw_idle()
+
+    def _unhighlight_axis(self, ax):
+        """Remove highlighting from an axis."""
+        if ax in self.original_spine_colors:
+            # Restore original colors
+            for spine_name in ["top", "bottom", "left", "right"]:
+                if spine_name in self.original_spine_colors[ax]:
+                    original_color = self.original_spine_colors[ax][spine_name]
+                    ax.spines[spine_name].set_color(original_color)
+                    ax.spines[spine_name].set_linewidth(1)
+
+            # Only redraw this specific axis
+            ax.figure.canvas.draw_idle()
+
+    def _clear_highlights(self):
+        """Clear all highlights and restore original colors."""
+        for ax in self.original_spine_colors:
+            self._unhighlight_axis(ax)
+        self.original_spine_colors.clear()
+        if hasattr(self, "canvas"):
+            self.canvas.draw_idle()
+
     def _clear_grid(self):
         if hasattr(self, "figure"):
             self.figure.clear()
@@ -311,9 +460,11 @@ class SpiralWidget(ImageGridWidget):
         for plot_data in self.plotArtists.values():
             plot_data.remove_artist_from_axes()
 
-        # Clear axes reference
+        # Clear axes reference and selection state
         if hasattr(self, "axes"):
             self.axes.clear()
+        self.selected_images.clear()
+        self._clear_highlights()
 
         # Update scroll area size after clearing
         if hasattr(self, "scroll_area"):
