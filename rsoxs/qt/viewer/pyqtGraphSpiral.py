@@ -1,6 +1,6 @@
 from nbs_viewer.views.display.plotDisplay import ImageGridDisplay
 from nbs_viewer.views.plot.imageGridWidget import ImageGridWidget
-from qtpy.QtCore import QThread, Signal, QEvent
+from qtpy.QtCore import QThread, Signal, QEvent, QTimer
 from qtpy.QtWidgets import (
     QListView,
     QMessageBox,
@@ -13,6 +13,7 @@ from qtpy.QtWidgets import (
     QGridLayout,
     QLabel,
     QFileDialog,
+    QApplication,
 )
 from qtpy.QtCore import Qt
 import pyqtgraph as pg
@@ -25,6 +26,8 @@ from rsoxs.configuration_setup.configuration_load_save_sanitize import (
 )
 import os
 import copy
+import tracemalloc
+from nbs_viewer.utils import print_debug
 
 
 def pick_locations_from_spirals(
@@ -119,19 +122,85 @@ class PyHyperWorker(QThread):
     data_ready = Signal(object)  # (x, y, plotData, artist)
     error_occurred = Signal(str)
 
-    def __init__(self, pyhyper_data, scan_id, parent=None):
+    def __init__(self, pyhyper_data, scan_id, parent=None, contrastLimits=[1e-1, 1e6]):
         super().__init__(parent)
         self.pyhyper_data = pyhyper_data
         self.scan_id = scan_id
+        self.contrastLimits = contrastLimits
 
     def run(self):
         try:
             data = self.pyhyper_data.loadRun(self.scan_id, dims=["sam_x", "sam_y"]).unstack("system")
+
+            # Optimize datatype to save memory
+            data = self._log_data(data)
+
             self.data_ready.emit(data)
         except Exception as e:
             error_msg = f"Error fetching plot data: {str(e)}"
             print_debug("PyHyperWorker", error_msg, category="DEBUG_PLOTS")
             self.error_occurred.emit(error_msg)
+
+    def _log_data(self, data):
+        data = data.astype(np.float32)
+        data = np.log10(np.maximum(data, self.contrastLimits[0]))
+        return data
+
+    def _optimize_datatype(self, data):
+        """
+        Optimize the datatype of the data to use the smallest appropriate unsigned integer type.
+
+        Parameters:
+            data: xarray.DataArray with image data
+
+        Returns:
+            data: xarray.DataArray with optimized datatype
+        """
+        # Get the actual data values
+        if hasattr(data, "values"):
+            values = data.values
+        else:
+            values = data
+
+        # Find the actual maximum value in the dataset
+        actual_max = np.max(values)
+
+        print(f"Original datatype: {values.dtype}")
+        print(f"Actual maximum value in dataset: {actual_max}")
+
+        # Determine the appropriate unsigned integer type
+        if actual_max <= np.iinfo(np.uint8).max:
+            target_dtype = np.uint8
+            print(f"Optimizing to uint8 (max: {np.iinfo(np.uint8).max})")
+        elif actual_max <= np.iinfo(np.uint16).max:
+            target_dtype = np.uint16
+            print(f"Optimizing to uint16 (max: {np.iinfo(np.uint16).max})")
+        elif actual_max <= np.iinfo(np.uint32).max:
+            target_dtype = np.uint32
+            print(f"Optimizing to uint32 (max: {np.iinfo(np.uint32).max})")
+        else:
+            # If max value exceeds uint32, keep original type but warn
+            print(f"Warning: Maximum value {actual_max} exceeds uint32 range, keeping original datatype")
+            return data
+
+        # Calculate memory savings
+        original_size = values.nbytes
+        optimized_size = values.astype(target_dtype).nbytes
+        savings_mb = (original_size - optimized_size) / (1024 * 1024)
+
+        print(f"Memory savings: {savings_mb:.2f} MB ({original_size} -> {optimized_size} bytes)")
+
+        # Cast the data to the optimized type
+        if hasattr(data, "astype"):
+            # For xarray DataArray
+            optimized_data = data.astype(target_dtype)
+        else:
+            # For numpy array
+            optimized_data = data.astype(target_dtype)
+
+        print(f"Optimized datatype: {optimized_data.dtype}")
+
+        return optimized_data
 
 
 class BestImageSelector(QWidget):
@@ -141,6 +210,8 @@ class BestImageSelector(QWidget):
         super().__init__(parent)
         self.selecting_mode = False
         self.spiral_widget = None
+        self.configuration = None
+        self.configuration_file = None
         self._setup_ui()
 
     def _setup_ui(self):
@@ -159,16 +230,30 @@ class BestImageSelector(QWidget):
         self.clear_button.clicked.connect(self._clear_selection)
         self.clear_button.setEnabled(False)
 
+        self.next_run_button = QPushButton("Next Run")
+        self.next_run_button.clicked.connect(self._next_run)
+        self.previous_run_button = QPushButton("Previous Run")
+        self.previous_run_button.clicked.connect(self._previous_run)
+        self.save_configuration_button = QPushButton("Save Configuration")
+        self.save_configuration_button.clicked.connect(self.save_configuration)
+
         layout1 = QHBoxLayout()
         layout2 = QHBoxLayout()
+        layout3 = QHBoxLayout()
 
         layout1.addWidget(self.load_configuration_button)
         layout1.addWidget(self.configuration_label)
 
         layout2.addWidget(self.select_button)
         layout2.addWidget(self.clear_button)
+
+        layout3.addWidget(self.previous_run_button)
+        layout3.addWidget(self.next_run_button)
+
         layout.addLayout(layout1)
         layout.addLayout(layout2)
+        layout.addLayout(layout3)
+        layout.addWidget(self.save_configuration_button)
 
     def _load_configuration(self):
         filepicker = QFileDialog()
@@ -213,21 +298,113 @@ class BestImageSelector(QWidget):
             print(f"update_configuration for {scan_id}")
 
             scan = self.spiral_widget.data_arrays[scan_id]
-            configuration = pick_locations_from_spirals(
+            self.configuration = pick_locations_from_spirals(
                 self.spiral_widget.selected_images, scan, self.configuration
             )
-            directory = os.path.dirname(self.configuration_file)
-            print(f"Saving configuration to {directory}/SpiralSpotsPicked.xlsx")
-            save_configuration_spreadsheet_local(
-                configuration, file_label="SpiralSpotsPicked", file_path=directory
-            )
+
+    def save_configuration(self):
+        directory = os.path.dirname(self.configuration_file)
+        print(f"Saving configuration to {directory}/SpiralSpotsPicked.xlsx")
+        save_configuration_spreadsheet_local(
+            self.configuration, file_label="SpiralSpotsPicked", file_path=directory
+        )
+
+    def _next_run(self):
+        was_selecting = self.selecting_mode
+        if was_selecting:
+            self.update_configuration()
+            self.spiral_widget.disable_image_selection()
+        self.spiral_widget.advance_run()
+        if was_selecting:
+            self.spiral_widget.enable_image_selection()
+
+    def _previous_run(self):
+        was_selecting = self.selecting_mode
+        if was_selecting:
+            self.update_configuration()
+            self.spiral_widget.disable_image_selection()
+        self.spiral_widget.previous_run()
+        if was_selecting:
+            self.spiral_widget.enable_image_selection()
+
+
+def memory_print(banner="Memory usage"):
+    snapshot = tracemalloc.take_snapshot()
+    top_stats = snapshot.statistics("lineno")
+
+    print(banner)
+
+    print("\n[ Top 10 memory users ]")
+    for i, stat in enumerate(top_stats[:10]):
+        if stat.size < 5 * 1024 * 1024:
+            break
+        print(f"{i+1}. {stat.count} blocks: {stat.size / 1024 / 1024:.1f} MiB")
+        for line in stat.traceback.format():
+            print(f"    {line}")
+
+
+class SimpleCache(dict):
+    def __init__(self, *args, max_size_bytes: int = 1e9, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_size_bytes = max_size_bytes
+        self.current_size = 0
+        self.last_accessed = []
+
+    def __getitem__(self, key, *args, **kwargs):
+        if key in self.last_accessed:
+            self.last_accessed.remove(key)
+        if key in self:
+            self.last_accessed.append(key)
+        return super().__getitem__(key, *args, **kwargs)
+
+    def __setitem__(self, key, value, *args, **kwargs):
+        if key in self:
+            self.current_size -= self[key].nbytes
+
+        super().__setitem__(key, value, *args, **kwargs)
+        self.current_size += value.nbytes
+        if key in self.last_accessed:
+            self.last_accessed.remove(key)
+        self.last_accessed.append(key)
+        if self.current_size > self.max_size_bytes:
+            self.evict()
+
+    def clear(self):
+        super().clear()
+        self.current_size = 0
+
+    def get_size(self):
+        return self.current_size
+
+    def evict(self):
+        while self.current_size > self.max_size_bytes and len(self.last_accessed) > 1:
+            key = self.last_accessed.pop(0)
+            del self[key]
+            print("Evicting key: ", key)
+
+    def __delitem__(self, key, *args, **kwargs):
+        if key in self:
+            self.current_size -= self[key].nbytes
+            if key in self.last_accessed:
+                self.last_accessed.remove(key)
+        super().__delitem__(key, *args, **kwargs)
+
+    def get_stats(self):
+        return {
+            "size": self.current_size,
+            "max_size": self.max_size_bytes,
+        }
 
 
 class PyQtGraphSpiralWidget(ImageGridWidget):
     data_ready = Signal()
 
     def __init__(self, *args, **kwargs):
-        self.data_arrays = {}
+        # Start memory tracking
+        if not tracemalloc.is_tracing():
+            tracemalloc.start()
+
+        self.data_arrays = SimpleCache(max_size_bytes=2 * 1024**3)
         self.selected_images = set()
         self.plot_widgets = {}  # Store individual plot widgets
         self.image_items = {}  # Store image items for highlighting
@@ -243,6 +420,8 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         self.limitsInboardOutboardDownUp = [0, 61.7, 0, 61.4]
         self.pyHyperLoader = None
         super().__init__(*args, **kwargs)
+
+        memory_print(f"=== BASELINE MEMORY USAGE (PyQtGraphSpiralWidget initialized) ===")
 
     def _create_plot_controls(self):
         """Create the best image selector control widget."""
@@ -304,14 +483,75 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
                 self, "Unsupported run", "Unsupported run: " + run.plan_name + " for spiral viewer"
             )
         else:
-            if run.scan_id not in self.data_arrays and run.scan_id not in self.workers:
-                self._start_pyhyper_worker(run)
+            # If the run is visible, or next to a visible row, start the worker
+            self._prefetch_data(run)
+
+    def _prefetch_data(self, run):
+        print(f"Prefetching data for run {run.scan_id}")
+        uid = run.uid
+        is_visible = uid in self.run_list_model.visible_runs
+
+        if is_visible:
+            self.start_pyhyper_worker(run)
+
+        siblings = self.run_list_model.get_siblings_of_run(run)
+        for sibling in siblings:
+            if sibling is None:
+                continue
+            print(f"Prefetching data for sibling {sibling.scan_id}")
+            sibling_uid = sibling.uid
+            sibling_is_visible = sibling_uid in self.run_list_model.visible_runs
+            if sibling_is_visible:
+                print(f"Prefetching data for {run.scan_id} because the sibling {sibling.scan_id} is visible")
+                self.start_pyhyper_worker(run)
+            elif is_visible:
+                print(f"Prefetching data for sibling {sibling.scan_id} because the run {run.scan_id} is visible")
+                self.start_pyhyper_worker(sibling)
+
+    def _on_visible_runs_changed(self, visible_runs):
+        for uid in visible_runs:
+            run = self.run_list_model._run_models[uid]
+            self._prefetch_data(run)
+        self._update_grid()
+
+    def advance_run(self):
+        current_run = self.active_run
+        if current_run is None:
+            run = self.run_list_model.get_first_run()
+            self.run_list_model.set_run_visible(run, True)
+            return
+        siblings = self.run_list_model.get_siblings_of_run(current_run)
+        next_run = siblings[1]
+        if next_run is not None:
+            self.run_list_model.set_run_visible(next_run, True)
+            return
+
+    def previous_run(self):
+        current_run = self.active_run
+        if current_run is None:
+            run = self.run_list_model.get_first_run()
+            self.run_list_model.set_run_visible(run, True)
+            return
+        siblings = self.run_list_model.get_siblings_of_run(current_run)
+        previous_run = siblings[0]
+        if previous_run is not None:
+            self.run_list_model.set_run_visible(previous_run, True)
+            return
+
+    def start_pyhyper_worker(self, run):
+        if run.scan_id not in self.data_arrays and run.scan_id not in self.workers:
+            self._start_pyhyper_worker(run)
 
     def _start_pyhyper_worker(self, run):
         print(f"Starting worker for run {run.scan_id}")
+        memory_print(f"=== STARTING WORKER FOR RUN {run.scan_id} ===")
         if self.pyHyperLoader is None:
-            self.pyHyperLoader = phs.load.SST1RSoXSDB(catalog=run._catalog)
-        worker = PyHyperWorker(self.pyHyperLoader, run.scan_id, self)
+            if hasattr(run, "run"):
+                catalog = run.run._catalog
+            else:
+                catalog = run._catalog
+            self.pyHyperLoader = phs.load.SST1RSoXSDB(catalog=catalog)
+        worker = PyHyperWorker(self.pyHyperLoader, run.scan_id, self, contrastLimits=self.contrastLimits)
         worker.data_ready.connect(lambda data: self._handle_loaded_data(run.scan_id, data))
         worker.error_occurred.connect(lambda error_msg: self._handle_error(error_msg))
         worker.finished.connect(lambda: self._cleanup_worker(run.scan_id))
@@ -334,28 +574,36 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
     def _handle_loaded_data(self, scan_id, data):
         print(f"_handle_loaded_data: Data for run {scan_id} loaded")
         self.data_arrays[scan_id] = data
+
+        # Memory tracking after data load
+        if not tracemalloc.is_tracing():
+            tracemalloc.start()
+
         self.data_ready.emit()
 
     def _update_grid(self):
+        # memory_print(f"=== UPDATING GRID ===")
         if len(self.run_list_model.visible_models) == 0:
             print("No visible runs")
             self.active_run = None
             return
 
         run = self.run_list_model.visible_models[0]
-        self.active_run = run
+        if self.active_run == run:
+            print("Already displaying this run")
+            return
+        self._clear_grid()
         if run.scan_id in self.data_arrays:
             scan = self.data_arrays[run.scan_id]
             print(f"Data for run {run.scan_id} loaded")
-        elif run.scan_id in self.workers:
-            print(f"Data for run {run.scan_id} being loaded by worker")
-            return
         else:
-            print(f"Starting worker for run {run.scan_id}")
-            self._start_pyhyper_worker(run)
+            print(f"Safely starting worker for run {run.scan_id}")
+            self.start_pyhyper_worker(run)
             return
-        self._clear_grid()
+        # memory_print(f"=== CLEARED GRID ===")
         self._create_subplots_for_page(scan)
+        memory_print(f"=== CREATED SUBPLOTS FOR PAGE ===")
+        self.active_run = run
 
     def _create_subplots_for_page(self, scan):
         """Create PyQtGraph subplots for the spiral data."""
@@ -363,8 +611,12 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         yMotorPositions = scan.attrs["sam_y"]
         timestamps = scan.attrs["time"]
 
-        numberRows, numberColumns = len(scan["sam_y"]), len(scan["sam_x"])
-
+        numberRows, numberColumns = scan.attrs["start"]["shape"]
+        yidx = np.argsort(yMotorPositions, kind="stable")
+        colgroups = [yidx[i : i + numberColumns] for i in range(0, len(yidx), numberColumns)]
+        colidx = [np.argsort(xMotorPositions[colgroup], kind="stable") for colgroup in colgroups]
+        sortidx = [colgroup[colidx[i]] for i, colgroup in enumerate(colgroups)]
+        sortidx = np.concatenate(sortidx)
         # Clear existing grid
         for i in reversed(range(self.grid_layout.count())):
             widget = self.grid_layout.itemAt(i).widget()
@@ -375,70 +627,62 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         self.image_items.clear()
         self.index_to_coords.clear()
 
-        for indexPlotRow, yMotorPosition in enumerate(scan["sam_y"]):
-            for indexPlotColumn, xMotorPosition in enumerate(scan["sam_x"]):
-                image = scan.sel(sam_y=yMotorPosition, sam_x=xMotorPosition, method="nearest")
+        for n, indexImage in enumerate(sortidx):
+            yMotorPosition = yMotorPositions[indexImage]
+            xMotorPosition = xMotorPositions[indexImage]
+            indexPlotRow = n // numberRows
+            indexPlotColumn = n % numberColumns
+            plot_widget = pg.PlotWidget()
+            plot_widget.setAspectLocked(False)
+            # Disable pan/zoom but keep mouse events for selection
+            plot_widget.setMouseEnabled(x=False, y=False)
+            # Configure ViewBox to disable pan/zoom but allow mouse events
 
-                # Find image number
-                for indexImage, timestamp in enumerate(timestamps):
-                    if (
-                        xMotorPositions[indexImage] == xMotorPosition
-                        and yMotorPositions[indexImage] == yMotorPosition
-                    ):
-                        break
+            # Store reference to this plot widget for mouse event handling
+            plot_widget.plot_id = (indexPlotRow, indexPlotColumn)
 
-                # Create PyQtGraph plot widget
-                plot_widget = pg.PlotWidget()
-                plot_widget.setAspectLocked(False)
-                # Disable pan/zoom but keep mouse events for selection
-                plot_widget.setMouseEnabled(x=False, y=False)
-                # Configure ViewBox to disable pan/zoom but allow mouse events
+            # Set title
+            title = f"Image {indexImage}, x = {float(xMotorPosition):.1f}, y = {float(yMotorPosition):.1f}"
+            plot_widget.setTitle(title, size="10pt", color="k")
 
-                # Store reference to this plot widget for mouse event handling
-                plot_widget.plot_id = (indexPlotRow, indexPlotColumn)
+            # Style the plot
+            self._style_pyqtgraph_plot(plot_widget, indexPlotRow, indexPlotColumn, numberRows, numberColumns)
 
-                # Set title
-                title = f"Image {indexImage}, x = {float(xMotorPosition):.1f}, y = {float(yMotorPosition):.1f}"
-                plot_widget.setTitle(title, size="10pt", color="k")
+            # Create image item using common method
+            # image_data = np.array(image)
+            image_item = self._create_image_item(
+                scan.sel(sam_y=yMotorPosition, sam_x=xMotorPosition, method="nearest").data
+            )
 
-                # Style the plot
-                self._style_pyqtgraph_plot(plot_widget, indexPlotRow, indexPlotColumn, numberRows, numberColumns)
+            # Add image to plot
+            plot_widget.addItem(image_item)
 
-                # Create image item using common method
-                image_data = np.array(image)
-                image_item = self._create_image_item(image_data)
+            view_box = plot_widget.getPlotItem().getViewBox()
+            view_box.setMouseEnabled(x=False, y=False)
+            # Set ViewBox limits to match image bounds so images fill the entire plot area
+            x_min, x_max = self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]
+            y_min, y_max = self.limitsInboardOutboardDownUp[2], self.limitsInboardOutboardDownUp[3]
+            view_box.setRange(xRange=(x_min, x_max), yRange=(y_min, y_max), padding=0)
 
-                # Add image to plot
-                plot_widget.addItem(image_item)
+            # Store references
+            self.index_to_coords[indexImage] = (indexPlotRow, indexPlotColumn)
+            self.plot_widgets[indexImage] = plot_widget
+            self.image_items[indexImage] = image_item
+            # Store original image data for popup creation
+            # self.original_image_data[indexImage] = image_data
 
-                view_box = plot_widget.getPlotItem().getViewBox()
-                view_box.setMouseEnabled(x=False, y=False)
-                # Set ViewBox limits to match image bounds so images fill the entire plot area
-                x_min, x_max = self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]
-                y_min, y_max = self.limitsInboardOutboardDownUp[2], self.limitsInboardOutboardDownUp[3]
-                view_box.setRange(xRange=(x_min, x_max), yRange=(y_min, y_max), padding=0)
+            # Override plot widget mouse events for panning and selection
+            plot_widget.mousePressEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_press(event, pw)
+            plot_widget.mouseReleaseEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_release(
+                event, pw
+            )
+            plot_widget.mouseMoveEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_move(event, pw)
+            plot_widget.mouseDoubleClickEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_double_click(
+                event, pw
+            )
 
-                # Store references
-                self.index_to_coords[indexImage] = (indexPlotRow, indexPlotColumn)
-                self.plot_widgets[indexImage] = plot_widget
-                self.image_items[indexImage] = image_item
-                # Store original image data for popup creation
-                self.original_image_data[indexImage] = image_data
-
-                # Override plot widget mouse events for panning and selection
-                plot_widget.mousePressEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_press(
-                    event, pw
-                )
-                plot_widget.mouseReleaseEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_release(
-                    event, pw
-                )
-                plot_widget.mouseMoveEvent = lambda event, pw=plot_widget: self._plot_widget_mouse_move(event, pw)
-                plot_widget.mouseDoubleClickEvent = (
-                    lambda event, pw=plot_widget: self._plot_widget_mouse_double_click(event, pw)
-                )
-
-                # Add to grid
-                self.grid_layout.addWidget(plot_widget, indexPlotRow, indexPlotColumn)
+            # Add to grid
+            self.grid_layout.addWidget(plot_widget, indexPlotRow, indexPlotColumn)
 
     def _style_pyqtgraph_plot(self, plot_widget, row_idx, col_idx, total_rows, total_cols):
         """Style a PyQtGraph plot widget to match Matplotlib reference."""
@@ -499,13 +743,26 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
             self._unhighlight_plot(plot_widget)
 
     def _clear_grid(self):
-        """Clear the grid and all plot widgets."""
-        # Clear existing grid
-        for i in reversed(range(self.grid_layout.count())):
-            widget = self.grid_layout.itemAt(i).widget()
-            if widget:
-                widget.deleteLater()
+        """Clear the grid rapidly by hiding widgets first, then cleaning up in background."""
+        print("Clearing grid")
 
+        # Store widgets for cleanup before removing from layout
+        widgets_to_cleanup = []
+
+        # First, hide all widgets immediately for instant visual feedback
+        for i in range(self.grid_layout.count()):
+            item = self.grid_layout.itemAt(i)
+            if item.widget():
+                widget = item.widget()
+                widget.hide()  # Instant visual removal
+                widgets_to_cleanup.append(widget)  # Store reference BEFORE removing
+
+        # Clear the layout items (this is fast)
+        while self.grid_layout.count():
+            item = self.grid_layout.takeAt(0)
+            # Don't delete the widget here, just remove from layout
+
+        print("Disconnecting signal connections")
         # Disconnect all signal connections before clearing
         for image_index, image_item in self.image_items.items():
             if image_index in self.signal_connections:
@@ -515,6 +772,8 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
                 except:
                     pass  # Already disconnected or item doesn't exist
 
+        print("Clearing dictionaries")
+        # Clear references immediately
         self.plot_widgets.clear()
         self.image_items.clear()
         self.original_image_data.clear()
@@ -522,27 +781,61 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         self.selected_images.clear()
         self.signal_connections.clear()
 
+        # Schedule widget cleanup in background using stored references
+        QTimer.singleShot(100, lambda w=widgets_to_cleanup: self._cleanup_widgets_in_background(w))
+
+        print("Clear Done")
+
+    def _cleanup_widgets_in_background(self, widgets):
+        """Remove widgets in background to avoid blocking UI."""
+        # Now we have the stored widget references
+        print("Cleaning up widgets in background")
+        for widget in widgets:
+            if widget and not widget.parent():  # Check if widget still exists
+                widget.deleteLater()
+                QApplication.processEvents()
+        print("Widget cleanup done")
+
     def _create_image_item(self, image_data):
         """Create and configure an ImageItem with common settings."""
-        # Apply log transformation to the data
-        log_data = np.log10(np.maximum(image_data, self.contrastLimits[0]))
-
-        # Create image item
-        image_item = pg.ImageItem(log_data)
+        # Create standard ImageItem with original data (no transformations)
+        image_item = pg.ImageItem(image_data)
 
         # Set image bounds
         x_min, x_max = self.limitsInboardOutboardDownUp[0], self.limitsInboardOutboardDownUp[1]
         y_min, y_max = self.limitsInboardOutboardDownUp[2], self.limitsInboardOutboardDownUp[3]
         image_item.setRect(pg.QtCore.QRectF(x_min, y_min, x_max - x_min, y_max - y_min))
 
-        # Set levels for log-transformed data
-        log_min = np.log10(self.contrastLimits[0])
-        log_max = np.log10(self.contrastLimits[1])
-        image_item.setLevels([log_min, log_max])
+        # Set levels for original data
+        image_item.setLevels([np.log10(self.contrastLimits[0]), np.log10(self.contrastLimits[1])])
 
-        # Set colormap
-        colormap = pg.colormap.get("RdYlBu_r", source="matplotlib")
-        image_item.setColorMap(colormap)
+        # Create logarithmic colormap using logspace positions
+        base_colormap = pg.colormap.get("RdYlBu_r", source="matplotlib")
+        image_item.setColorMap(base_colormap)
+        """
+        base_colors = base_colormap.getColors()
+        num_colors = len(base_colors)
+
+        print(f"Creating log colormap with {num_colors} colors")
+
+        cvalues = np.maximum(np.linspace(0, self.contrastLimits[1], 256), self.contrastLimits[0])
+        logcvals = np.log10(cvalues)
+        relog = (logcvals - min(logcvals)) / (max(logcvals) - min(logcvals))
+        lut = [base_colormap[v].getRgb() for v in relog]
+
+        image_item.setLookupTable(lut)
+        
+        # Create logarithmically spaced positions
+        # This creates positions that are spaced logarithmically between 0 and 1
+        lower_lim = np.log10(1 / self.contrastLimits[1])
+        log_positions = np.power(np.linspace(lower_lim, 0, num_colors), 10)  # From 0.001 to 1.0
+        log_positions = (log_positions - log_positions[0]) / (
+            log_positions[-1] - log_positions[0]
+        )  # Normalize to [0, 1]
+
+        # Create the logarithmic colormap
+        log_colormap = pg.ColorMap(pos=log_positions, color=base_colors)
+        image_item.setColorMap(log_colormap) """
 
         return image_item
 
@@ -576,8 +869,12 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
         detailed_plot.setMouseEnabled(x=True, y=True)
 
         # Get the original image data and create new image item
-        image_data = self.original_image_data[image_number]
-        detailed_image_item = self._create_image_item(image_data)
+        scan = self.data_arrays[self.active_run.scan_id]
+        yMotorPosition = scan.attrs["sam_y"][image_number]
+        xMotorPosition = scan.attrs["sam_x"][image_number]
+        detailed_image_item = self._create_image_item(
+            scan.sel(sam_y=yMotorPosition, sam_x=xMotorPosition, method="nearest").data
+        )
 
         # Add image to plot
         detailed_plot.addItem(detailed_image_item)
@@ -739,6 +1036,7 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
 class PyQtGraphSpiral(ImageGridDisplay):
     def setup_models(self):
         super().setup_models()
+        self.run_list_model.set_auto_add(False)
 
     def _create_plot_widget(self):
         return PyQtGraphSpiralWidget(self.run_list_model)
