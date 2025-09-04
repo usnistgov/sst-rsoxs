@@ -581,6 +581,18 @@ class PyQtGraphSpiralWidget(ImageGridWidget):
 
         self.data_ready.emit()
 
+    def _handle_error(self, error_msg):
+        """Handle errors emitted by background workers.
+
+        Shows a non-blocking warning and logs the error for debugging.
+        """
+        print_debug("PyQtGraphSpiralWidget", f"Worker error: {error_msg}", category="DEBUG_PLOTS")
+        try:
+            QMessageBox.warning(self, "Data load error", error_msg)
+        except Exception:
+            # If GUI is not available or warning fails, fallback to printing
+            print(f"Data load error: {error_msg}")
+
     def _update_grid(self):
         # memory_print(f"=== UPDATING GRID ===")
         if len(self.run_list_model.visible_models) == 0:
