@@ -14,6 +14,7 @@ The sample spot located from the bar image may have appeared good optically, but
 - For every subsequent spiral scan, right-click on this highlighted scan, select "Copy to Display", and then select "display_1"
 - Navigate to the tab labelled "display_1"
 - Under runs, select the desired spiral scan.  A grid of images should load in the right-hand panel, showing the spiral images organized by spatial location.
+- If needed, double-click on an image to view the indivdual image zoomed in.
 
 
 ## Guidance for deciding optimal location(s) from spiral scan
@@ -30,9 +31,10 @@ It is recommended to let spiral scans run to completion, as a full spiral may he
 
 ## Selected desired location(s) using `nbs_viewer`
 
-After deciding the images you want, update the sample positions, use `nbs-viewer` to select the desired locations and update those locations in the sample configuration.
+After deciding the images you want, use `nbs-viewer` to select the desired locations and update those locations in the sample configuration.
 - Under the "Plot Controls" bottom left-hand pannel, click on "Load File" and select an up-to-date spreadsheet that was saved after fiducials were calibrated.
 - With the desired spiral scan open, click on "Select Best Image".
 - In the right-hand panel, click on the desired image(s).  The selected image(s) should have a red border after it has been clicked.
 - After all desired images are selected in the scan, click "Use Selected Images" in the lower let-hand panel.
 - Repeat the above steps for all spiral scans from which you want to select locations.
+- Finally, click on "Save Configuration" to save out a new spreadsheet with the updated locations.
