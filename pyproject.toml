@@ -41,8 +41,7 @@ rsoxs = "rsoxs.plans.rsoxs:load_rsoxs"
 rsoxs_waxs = "rsoxs.plans.scan_decorators:rsoxs_waxs_decorator"
 
 [project.entry-points."nbs_viewer.plot_displays"]
-rsoxs-spiral = "rsoxs.qt.viewer.spiralViewer:SpiralViewer"
-rsoxs-pyqtgraph-spiral = "rsoxs.qt.viewer.pyqtGraphSpiral:PyQtGraphSpiral"
+rsoxs-spiral = "rsoxs.qt.viewer.pyqtGraphSpiral:PyQtGraphSpiral"
 
 [tool.black]
 line-length = 115
