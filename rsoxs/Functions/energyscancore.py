@@ -34,9 +34,9 @@ from nbs_bl.hw import (
     en,
     mir3,
     izero_mesh,
-    Shutter_open_time,
-    Shutter_control,
-    Shutter_enable,
+    shutter_open_time,
+    shutter_control,
+    shutter_enable,
     #Shutter_trigger,
     #shutter_open_set
     sam_X,
@@ -75,7 +75,7 @@ from ..HW.signals import (
 )
 from ..HW.lakeshore import tem_tempstage
 from ..Functions.alignment import rotate_now
-from ..Functions.common_procedures import set_exposure
+#from ..Functions.common_procedures import set_exposure
 from ..Functions.fly_alignment import find_optimum_motor_pos, return_NullStatus_decorator #bec, db
 
 from .flystream_wrapper import flystream_during_wrapper
@@ -860,6 +860,7 @@ def NEXAFS_fly_scan_core(
 
 
 def flyer_scan_energy(scan_params, md={},locked=True,polarization=0):
+    ## TODO: Don't use this function until set_exposure has been restored
     """
     Specific scan for SST-1 monochromator fly scan, while catching up with the undulator
 
@@ -899,9 +900,10 @@ def flyer_scan_energy(scan_params, md={},locked=True,polarization=0):
     _md.update(md or {})
     flyers = [d for d in detectors + [en] if isinstance(d, Flyable)]
     readers = [d for d in detectors + [en] if isinstance(d, Readable)]
-    for reader in readers:
-        if hasattr(reader,'set_exposure'):
-            reader.set_exposure(0.5)
+    #for reader in readers:
+        ## TODO: Don't use this function until set_exposure has been restored
+        #if hasattr(reader,'set_exposure'):
+        #    reader.set_exposure(0.5)
 
     en.preflight(*scan_params,locked=locked,time_resolution=0.5)
 
@@ -927,7 +929,7 @@ def cdsaxs_scan(det=None,angle_mot = None,shutter = None,start_angle=50,end_angl
     ## Sanitize inputs that can't go directly into inputs
     det = det if det else waxs_det 
     angle_mot = angle_mot if angle_mot else sam_Th 
-    shutter = shutter if shutter else Shutter_control
+    shutter = shutter if shutter else shutter_control
     
     _md = deepcopy(dict(RE.md))
     if md == None:
@@ -936,7 +938,7 @@ def cdsaxs_scan(det=None,angle_mot = None,shutter = None,start_angle=50,end_angl
     
     
     _md.update({'plan_info':f'CDSAXS_{start_angle/2}to{end_angle/2}_{exp_time}sec'})
-    yield from bps.mv(Shutter_open_time,exp_time*1000)
+    yield from bps.mv(shutter_open_time,exp_time*1000)
     yield from bps.mv(det.cam.acquire_time, exp_time)
     yield from bps.mv(angle_mot,start_angle)
     old_velo = angle_mot.velocity.get()

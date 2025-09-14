@@ -42,6 +42,7 @@ def calibrate_pgm_offsets(
     for cff, m_order in zip(cs, ms):
         m_set, g_set = get_mirror_grating_angles(energy, cff, k, m_order)
         print(f'setting cff to {cff} for a mirror with k={k} at {m_order} order')
+        print("Setting mirror2 to: " + str(m_set))
         m_set += mirror_rb_off
         g_set += grating_rb_off
         yield from bps.mv(grating.velocity, 0.1, mirror2.velocity, 0.1)
