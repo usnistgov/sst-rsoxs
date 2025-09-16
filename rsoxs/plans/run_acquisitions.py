@@ -279,6 +279,10 @@ myQueue = [
 ## Custom scripts for commissioning #################################
 
 
+def cdsaxs_20250914():
+    yield from do_cdsaxs_position_sweep()
+    yield from open_beam_waxs_photodiode_scans(iterations=1000)
+
 
 def TEY_20250914():
 
@@ -834,3 +838,60 @@ def do_cdsaxs(energies, samples):
         yield from bps.mv(sam_Th,-70)
         yield from do_rsoxs(edge=energies,frames=1,exposure=.1,md={'plan_name':f'CD_20deg'})
 
+
+def do_just_rsoxs(energies, samples):
+    """
+    In case the do_rsoxs portion of do_cdsaxs fails.
+    """
+    yield from bps.mv(slitsc,-3.05) ## all flux
+    for samp in samples:
+        yield from load_samp(samp)
+        yield from bps.mv(sam_Th, -70)
+        yield from do_rsoxs(
+            edge = energies, 
+            frames = 1,
+            exposure = 0.1,
+            md = {"plan_name": f"CD_20deg", "RSoXS_Main_DET": "WAXS"},
+            )
+        
+
+def do_cdsaxs_position_sweep():
+
+    #yield from load_configuration("WAXS")
+    #yield from bps.mv(Det_W, -50)
+    yield from set_polarization(90) ## So that there is no rotation dependence
+    energies = [270, 285, 290, 317, 323, 327, 330, 332, 345, 375, 383, 386, 403.5, 404.5, 410, 414, 418.5, 430, 505, 513, 517, 522, 531, 537.8, 539.5, 549, 551, 555]
+
+    original_x_ZnMIPdeveloped = -1.20996394563853
+    original_x_ZnMIPundeveloped = -1.2098320088991228
+    #offsets = [-0.5, 0.5, -1, 1, -1.5, 1.5, -2, 2, -2.5, 2.5, -3, 3, -3.5, 3.5, -4, 4, -4.5, 4.5, -5, 5]
+    offsets = [0.5, -1, 1, -1.5, 1.5, -2, 2, -2.5, 2.5, -3, 3, -3.5, 3.5, -4, 4, -4.5, 4.5, -5, 5]
+
+    for offset in offsets[8:]:
+        rsoxs_config["bar"][5]["location"][0]["position"] = original_x_ZnMIPdeveloped + offset
+        sync_rsoxs_config_to_nbs_manipulator()
+
+        yield from do_cdsaxs(energies, [5])
+    
+    
+    for offset in offsets:
+        rsoxs_config["bar"][6]["location"][0]["position"] = original_x_ZnMIPundeveloped + offset
+        sync_rsoxs_config_to_nbs_manipulator()
+
+        yield from do_cdsaxs(energies, [6])
+
+    
+
+def sdd_cdsaxs():
+    yield from bps.mv(slitsc,-3.05)
+    
+    ## Run SBA15 at end to get SDD
+    yield from load_samp("SBA15")
+    #energy_parameters = (100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 1000)
+    energy_parameters = (700, 100, 1000)
+    yield from nbs_energy_scan(
+                        *energy_parameters,
+                        use_2d_detector=True, 
+                        dwell=0.1,
+                        group_name="SDD",
+                        )

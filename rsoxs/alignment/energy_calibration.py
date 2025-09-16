@@ -51,7 +51,7 @@ def calibrate_pgm_offsets(
         yield from bps.sleep(1)
         peaklist = []
         yield from rsoxs_fly_max(
-            detectors=[detector],
+            detectors=[detector], ## TODO: might be good to save out I0 mesh signal as well because then we can see the maxima in the I0 lining up with the maxima in TEY signal.
             motor=grating,
             start=g_set - grat_off_search,
             stop=g_set + grat_off_search,

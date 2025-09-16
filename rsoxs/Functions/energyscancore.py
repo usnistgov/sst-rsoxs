@@ -37,7 +37,6 @@ from nbs_bl.hw import (
     shutter_open_time,
     shutter_control,
     shutter_enable,
-    #Shutter_trigger,
     #shutter_open_set
     sam_X,
     sam_Y,
@@ -100,7 +99,7 @@ run_report(__file__)
 
 @merge_func(nbs_gscan, use_func_name=False, omit_params=["motor"])
 def variable_energy_scan(*args, **kwargs):
-    yield from bps.mv(Shutter_control, 1)
+    yield from bps.mv(shutter_control, 1)
     yield from finalize_wrapper(
         plan = nbs_gscan(en.energy, *args, **kwargs),
         final_plan= post_scan_hardware_reset()
@@ -122,14 +121,14 @@ def rsoxs_step_scan(*args, extra_dets=[], n_exposures=1, **kwargs):
     _extra_dets.extend(extra_dets)
     rsoxs_per_step=partial(one_nd_sticky_exp_step,
                     take_reading=partial(take_exposure_corrected_reading,
-                                        shutter = Shutter_control,
+                                        shutter = shutter_control,
                                         check_exposure=False))
     yield from variable_energy_scan(*args, extra_dets=_extra_dets, per_step=rsoxs_per_step, **kwargs)
     waxs_det.number_exposures = old_n_exp
 
 @merge_func(nbs_list_scan, use_func_name=False, omit_params=["*args"])
 def energy_step_scan(energies, **kwargs):
-    yield from bps.mv(Shutter_control, 1)
+    yield from bps.mv(shutter_control, 1)
     yield from finalize_wrapper(
         plan = nbs_list_scan(en.energy, energies, **kwargs),
         final_plan= post_scan_hardware_reset()
@@ -141,7 +140,7 @@ def step_scan_energy(
     exposure_times=None,
 ):
 ## A generic energy step sweep that can be applied to both RSoXS and NEXAFS based on what detectors are provided  
-    yield from bps.mv(Shutter_control, 1) ## Open the shutter
+    yield from bps.mv(shutter_control, 1) ## Open the shutter
     """
     yield from finalize_wrapper(
         plan = bp.list_scan(
@@ -159,7 +158,7 @@ def step_scan_energy(
 def post_scan_hardware_reset():
     ## Make sure the shutter is closed, and the scanlock if off after a scan, even if it errors out
     yield from bps.mv(en.scanlock, 0)
-    yield from bps.mv(Shutter_control, 0)
+    yield from bps.mv(shutter_control, 0)
 
 
 
@@ -183,7 +182,7 @@ SLEEP_FOR_SHUTTER = 1
 def cleanup():
     # make sure the shutter is closed, and the scanlock if off after a scan, even if it errors out
     yield from bps.mv(en.scanlock, 0)
-    yield from bps.mv(Shutter_control, 0)
+    yield from bps.mv(shutter_control, 0)
     
 
 def NEXAFS_step_scan_core(
@@ -413,7 +412,7 @@ def NEXAFS_step_scan_core(
     #print(sigcycler)
     exps = {}
     
-    yield from bps.mv(Shutter_control, 1) # open the shutter for the run
+    yield from bps.mv(shutter_control, 1) # open the shutter for the run
     yield from finalize_wrapper(
         bp.scan_nd(newdets, 
                    sigcycler, 
@@ -525,7 +524,7 @@ def new_en_scan_core(
             goodsignals.append(signal)
             signames.append(signal.name)
         #signals.extend([det.cam.acquire_time])
-    goodsignals.extend([Shutter_open_time])
+    goodsignals.extend([shutter_open_time])
     if len(newdets) != 1: # shutter can only work with a single lead detector
         valid = False
         validation += f"a number of detectors that is not 1 was given :{len(newdets)}\n"
@@ -660,7 +659,7 @@ def new_en_scan_core(
         if hasattr(sig,'exposure_time'):
             sigcycler += cycler(sig.exposure_time, times.copy()) # any ophyd signal devices should have their exposure times set here
             # TODO: potentially shorten the exposure times by some constant to allow for shutter opening and closing times
-    sigcycler += cycler(Shutter_open_time, shutter_times) # cycler for changing the shutter opening time
+    sigcycler += cycler(shutter_open_time, shutter_times) # cycler for changing the shutter opening time
     if isinstance(polarizations,(list, redis_json_dict.redis_json_dict.ObservableSequence)):
         sigcycler = cycler(en.polarization, list(polarizations))*sigcycler # cycler for polarization changes (multiplied means we do everything above for each polarization)
 
@@ -706,7 +705,7 @@ def new_en_scan_core(
                 per_step=partial(one_nd_sticky_exp_step,
                                     remember=exps,
                                     take_reading=partial(take_exposure_corrected_reading,
-                                                        shutter = Shutter_control,
+                                                        shutter = shutter_control,
                                                         check_exposure=check_exposure))
                 ),
         cleanup()
@@ -722,7 +721,7 @@ def new_en_scan_core(
                 per_step=partial(one_nd_sticky_exp_step,
                                     remember=exps,
                                     take_reading=partial(take_exposure_corrected_reading,
-                                                        shutter = Shutter_control,
+                                                        shutter = shutter_control,
                                                         check_exposure=check_exposure))
                 ),
                 [beamstop_waxs, izero_mesh], stream=False),
@@ -852,8 +851,8 @@ def NEXAFS_fly_scan_core(
 
     uid = ""
     if openshutter:
-        yield from bps.mv(Shutter_enable, 0)
-        yield from bps.mv(Shutter_control, 1)
+        yield from bps.mv(shutter_enable, 0)
+        yield from bps.mv(shutter_control, 1)
     uid = (yield from finalize_wrapper(flyer_scan_energy(list(chain.from_iterable(scan_params)), md=md, locked=locked, polarization=pol),cleanup()))
 
     return uid

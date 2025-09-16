@@ -20,7 +20,7 @@ from nbs_bl.hw import (
     sam_viewer,
 )
 
-from rsoxs.configuration_setup.configurations_instrument import all_out #from .configurations import all_out
+from rsoxs.configuration_setup.configurations_instrument import clear_rsoxs #from .configurations import all_out
 from ..HW.detectors import (
     set_exposure,
     waxs_det,
@@ -161,7 +161,7 @@ del pol
 
 @register_line_magic
 def nmode(line):
-    RE(all_out())
+    RE(clear_rsoxs())
 
 
 del nmode
