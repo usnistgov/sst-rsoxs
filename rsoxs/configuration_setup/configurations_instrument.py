@@ -141,7 +141,24 @@ default_configurations = {
     "TEMSampleRetracted": [
         {"motor": TEMZ, "position": 1, "order": 0},
     ],
+
+    "RSoXSSlits_InPosition": [
+        {"motor": slits1.vsize, "position": 0.02, "order": 0},
+        {"motor": slits1.vcenter, "position": -0.55, "order": 0},
+        {"motor": slits1.hsize, "position": 0.04, "order": 0},
+        {"motor": slits1.hcenter, "position": -0.18, "order": 0},
+        {"motor": slits2.vsize, "position": 0.21, "order": 0},
+        {"motor": slits2.vcenter, "position": -0.873, "order": 0},
+        {"motor": slits2.hsize, "position": 0.4, "order": 0},
+        {"motor": slits2.hcenter, "position": -0.1, "order": 0},
+        {"motor": slits3.vsize, "position": 1, "order": 0},
+        {"motor": slits3.vcenter, "position": -0.45, "order": 0},
+        {"motor": slits3.hsize, "position": 1, "order": 0},
+        {"motor": slits3.hcenter, "position": 0.2, "order": 0},
+        {"motor": slitsc, "position": -3.05, "order": 2},
+    ],
     
+    ## TODO: delete configurations from here onwards if the ones below work.
     "WAXS_OpenBeamImages": [
         {"motor": en, "position": 150, "order": 0},
         {"motor": slitsc, "position": -0.01, "order": 0},
@@ -350,13 +367,12 @@ def clear_rsoxs():
         slitsc,
         -0.05,
     )
-    print("moving back to 1200 l/mm grating")
-    yield from grating_to_1200()
-    print("resetting cff to 2.0")
-    yield from bps.mv(mono_en.cff, 2)
-
-    ## Try moving energy and polarization, but I may not have PV write access during maintenance period
+    ## The following may lose PV write access during maintenance period
     try:
+        print("moving back to 1200 l/mm grating")
+        yield from grating_to_1200() ## Involves moving energy, which may lose PV write access
+        print("resetting cff to 2.0")
+        yield from bps.mv(mono_en.cff, 2)
         print("moving to 270 eV")
         yield from bps.mv(en, 270)
         yield from bps.mv(en.polarization, 0)
