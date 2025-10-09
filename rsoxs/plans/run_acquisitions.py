@@ -631,6 +631,11 @@ def open_beam_waxs_photodiode_scans_carbon(iterations=1):
 
 
 def HOPG_energy_resolution_series():
+    """
+    This series is especially helpful when selecting slits1.vsize to balance beam flux and energy resolution.
+    Moreover, it should be run routinely during commissioning to assess energy resolution and adjust energy calibration if needed.
+    """
+    
     ## Start and end at safe configuraiton like WAXSNEXAFS
     yield from load_configuration("WAXSNEXAFS")
     
