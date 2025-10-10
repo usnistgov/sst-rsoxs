@@ -43,7 +43,8 @@ from ..HW.energy import (
     epu_phase,
     epu_mode
 )
-from .alignment import load_configuration,load_samp
+from ..configuration_setup.configurations_instrument import load_configuration
+from .alignment import load_samp
 from ..HW.detectors import set_exposure
 # from ..startup import bec
 from nbs_bl.printing import run_report

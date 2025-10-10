@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 # from ..startup import RE
 from nbs_bl.queueserver import GLOBAL_USER_STATUS
@@ -55,10 +56,10 @@ def load_configuration(configuration_name):
         mdToUpdate = {
             "RSoXS_Config": configuration_name,
             "RSoXS_Main_DET": "WAXS",
-            "RSoXS_WAXS_SDD": 34.34,  # "RSoXS_WAXS_SDD": 39.19,
-            "RSoXS_WAXS_BCX": 467.5,
-            "RSoXS_WAXS_BCY": 513.4,
-            "WAXS_Mask": [(367, 545), (406, 578), (880, 0), (810, 0)],
+            "RSoXS_WAXS_SDD": 31.960803248151926,
+            "RSoXS_WAXS_BCX": 474,
+            "RSoXS_WAXS_BCY": 502,
+            "WAXS_Mask": [(477.418, 535.415), (446.074, 511.344), (872.214, -0.476), (948.916, -0.476)],
             "RSoXS_SAXS_SDD": None,
             "RSoXS_SAXS_BCX": None,
             "RSoXS_SAXS_BCY": None,
@@ -98,24 +99,6 @@ position_CameraWAXS_OutOfBeamPath = -94
 
 ## TODO: split into 2 dictionaries.  One that users can use and I can make a list of names to use in spreadsheet sanitization and then one dictionary that is used for one-time setup.
 default_configurations = {
-    "NoBeam": [
-        {"motor": slits1.vsize, "position": position_RSoXSSlitAperture_FullyOpen, "order": 0},
-        {"motor": slits1.hsize, "position": position_RSoXSSlitAperture_FullyOpen, "order": 0},
-        {"motor": slits2.vsize, "position": position_RSoXSSlitAperture_FullyOpen, "order": 0},
-        {"motor": slits2.hsize, "position": position_RSoXSSlitAperture_FullyOpen, "order": 0},
-        {"motor": slits3.vsize, "position": position_RSoXSSlitAperture_FullyOpen, "order": 0},
-        {"motor": slits3.hsize, "position": position_RSoXSSlitAperture_FullyOpen, "order": 0},
-        {"motor": shutter_y, "position": 44, "order": 1},
-        {"motor": izero_y, "position": 144, "order": 1},
-        {"motor": Det_W, "position": position_CameraWAXS_OutOfBeamPath, "order": 1},
-        {"motor": BeamStopW, "position": 3, "order": 1},
-        {"motor": BeamStopS, "position": 3, "order": 1},
-        #{"motor": sam_Y, "position": 345, "order": 1},  ## TODO: Might need to remove if issue with gate valve closed.  maybe make separate configuration, solid_sample_out
-        #{"motor": sam_X, "position": 0, "order": 1},
-        #{"motor": sam_Z, "position": 0, "order": 1},
-        #{"motor": sam_Th, "position": 0, "order": 1},
-        {"motor": TEMZ, "position": 1, "order": 1},
-    ],
     "MirrorConfiguration_RSoXS": [
         {"motor": mir1.x, "position": 1.3, "order": 0},
         {"motor": mir1.y, "position": -18, "order": 1},
@@ -126,10 +109,56 @@ default_configurations = {
         {"motor": mir3.x, "position": 24.2, "order": 0},
         {"motor": mir3.y, "position": 18, "order": 1},
         {"motor": mir3.z, "position": 0, "order": 2},
-        {"motor": mir3.pitch, "position": 7.8, "order": 3},
+        {"motor": mir3.pitch, "position": 7.84, "order": 3},
         {"motor": mir3.roll, "position": 0, "order": 4},
         {"motor": mir3.yaw, "position": 0, "order": 5},
     ],
+
+    "RSoXSSlitsRetracted": [
+        {"motor": slits1.vsize, "position": 10, "order": 0},
+        {"motor": slits1.hsize, "position": 10, "order": 0},
+        {"motor": slits2.vsize, "position": 10, "order": 0},
+        {"motor": slits2.hsize, "position": 10, "order": 0},
+        {"motor": slits3.vsize, "position": 10, "order": 0},
+        {"motor": slits3.hsize, "position": 10, "order": 0},
+    ],
+
+    "RSoXSDetectorsRetracted": [
+        {"motor": shutter_y, "position": 44, "order": 0},
+        {"motor": izero_y, "position": 144, "order": 0},
+        {"motor": Det_W, "position": -94, "order": 0},
+        {"motor": BeamStopW, "position": 3, "order": 0},
+        {"motor": BeamStopS, "position": 3, "order": 0},
+    ],
+
+    "SolidSampleRetracted": [
+        {"motor": sam_Y, "position": 345, "order": 0},  ## TODO: Might need to remove if issue with gate valve closed.  maybe make separate configuration, solid_sample_out
+        {"motor": sam_X, "position": 0, "order": 0},
+        {"motor": sam_Z, "position": 0, "order": 0},
+        {"motor": sam_Th, "position": 0, "order": 0},
+    ],
+
+    "TEMSampleRetracted": [
+        {"motor": TEMZ, "position": 1, "order": 0},
+    ],
+
+    "RSoXSSlits_InPosition": [
+        {"motor": slits1.vsize, "position": 0.02, "order": 0},
+        {"motor": slits1.vcenter, "position": -0.55, "order": 0},
+        {"motor": slits1.hsize, "position": 0.04, "order": 0},
+        {"motor": slits1.hcenter, "position": -0.18, "order": 0},
+        {"motor": slits2.vsize, "position": 0.21, "order": 0},
+        {"motor": slits2.vcenter, "position": -0.873, "order": 0},
+        {"motor": slits2.hsize, "position": 0.4, "order": 0},
+        {"motor": slits2.hcenter, "position": -0.1, "order": 0},
+        {"motor": slits3.vsize, "position": 1, "order": 0},
+        {"motor": slits3.vcenter, "position": -0.45, "order": 0},
+        {"motor": slits3.hsize, "position": 1, "order": 0},
+        {"motor": slits3.hcenter, "position": 0.2, "order": 0},
+        {"motor": slitsc, "position": -3.05, "order": 2},
+    ],
+    
+    ## TODO: delete configurations from here onwards if the ones below work.
     "WAXS_OpenBeamImages": [
         {"motor": en, "position": 150, "order": 0},
         {"motor": slitsc, "position": -0.01, "order": 0},
@@ -276,6 +305,33 @@ default_configurations = {
     ],
 }
 
+## Can't just copy.deepcopy configurations to piece together new configurations because the motor objects might contain references back to themselves, and then we get `RecursionError: maximum recursion depth exceeded` when we try to load `profile_collection`
+## Instead, make a new ditionary
+default_configurations["NoBeam"] = [
+    {"motor": item["motor"], "position": item["position"], "order": item["order"]}
+    for item in default_configurations["RSoXSSlitsRetracted"]
+]
+
+default_configurations["RSoXSRetracted"] = [
+    {"motor": item["motor"], "position": item["position"], "order": item["order"]}
+    for item in default_configurations["RSoXSSlitsRetracted"]
+]
+default_configurations["RSoXSRetracted"].extend(
+    {"motor": item["motor"], "position": item["position"], "order": int(item["order"] + 1)}
+    for item in default_configurations["RSoXSDetectorsRetracted"]
+    )
+default_configurations["RSoXSRetracted"].extend(
+    {"motor": item["motor"], "position": item["position"], "order": int(item["order"] + 2)}
+    for item in default_configurations["SolidSampleRetracted"]
+    )
+default_configurations["RSoXSRetracted"].extend(
+    {"motor": item["motor"], "position": item["position"], "order": int(item["order"] + 3)}
+    for item in default_configurations["TEMSampleRetracted"]
+    )
+
+
+
+
 GLOBAL_CONFIGURATION_DICT.update(default_configurations)
 
 
@@ -288,20 +344,11 @@ def remove_configuration(configuration_name):
 
 
 ## TODO: break up the function so that undulator movements are separated.  We lose PV write access during maintenance/shutdown periods.
-def all_out():
+def clear_rsoxs():
     yield from psh10.close()
-    yield from load_configuration("NoBeam")
-    yield from bps.mv(
-        slitsc,
-        -0.05,
-    )
-    print("moving back to 1200 l/mm grating")
-    yield from grating_to_1200()
-    print("resetting cff to 2.0")
-    yield from bps.mv(mono_en.cff, 2)
-    print("moving to 270 eV")
-    yield from bps.mv(en, 270)
-    yield from bps.mv(en.polarization, 0)
+
+    ## Move RSoXS out of the way
+    yield from load_configuration("RSoXSRetracted")
     bl.md.update(
         {
             "RSoXS_Config": "inactive",
@@ -314,4 +361,22 @@ def all_out():
             "RSoXS_SAXS_BCY": None,
         }
     )
+
+    ## Move other beamline components to NEXAFS defaults
+    yield from bps.mv(
+        slitsc,
+        -0.05,
+    )
+    ## The following may lose PV write access during maintenance period
+    try:
+        print("moving back to 1200 l/mm grating")
+        yield from grating_to_1200() ## Involves moving energy, which may lose PV write access
+        print("resetting cff to 2.0")
+        yield from bps.mv(mono_en.cff, 2)
+        print("moving to 270 eV")
+        yield from bps.mv(en, 270)
+        yield from bps.mv(en.polarization, 0)
+    except:
+        print("Unable to move EPU at this time.")
+    
     print("All done - Happy NEXAFSing")
