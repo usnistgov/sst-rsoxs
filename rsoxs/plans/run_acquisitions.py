@@ -394,7 +394,24 @@ def commissioning_scans_20250913():
 
 
 
+def reproduce_EPU_error():
 
+    add_current_position_as_sample(name="EPUTest", sample_id="EPUTest")
+
+    for iteration in np.arange(0, 1e10, 1):
+        for polarization in [0, 90, 45, 135]:
+            yield from set_polarization(polarization)
+
+            ## Running 50 repeat exposures at each energy at 1 s exposure time each.
+            energy_parameters = (440, 120, 560)
+            yield from nbs_energy_scan(
+                                *energy_parameters,
+                                use_2d_detector=False, 
+                                dwell=1,
+                                n_exposures=1,  
+                                group_name="",
+                                sample="EPUTest",
+            )
 
 
 ## 20250711 mirror alignment parameter sweep to loop overnight
