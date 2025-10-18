@@ -99,6 +99,7 @@ suspend_current = SuspendFloor(
 )
 
 """
+#
 suspend_waxs_temp_low = SuspendFloor(
    waxs_det.cam.temperature_actual,
    resume_thresh=-85,
