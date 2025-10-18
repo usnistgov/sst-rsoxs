@@ -4,7 +4,17 @@ from bluesky.preprocessors import make_decorator
 import bluesky_darkframes
 
 from ..devices.detectors import RSOXSGreatEyesDetector, SimGreatEyes
-from nbs_bl.hw import en, shutter_control, shutter_open_time, Det_S, Det_W, sam_Th, sam_X, sam_Y, waxs_det
+from nbs_bl.hw import (
+    en, 
+    shutter_control, 
+    shutter_open_time, 
+    Det_S, 
+    Det_W, 
+    sam_Th, 
+    sam_X, 
+    sam_Y, 
+    #waxs_det,
+)
 from nbs_bl.printing import boxed_text, run_report
 from ..Functions.per_steps import trigger_and_read_with_shutter
 from ..startup import RE
@@ -156,7 +166,7 @@ def dark_plan(det):
 #     limit=20,
 # )
 
-
+"""
 dark_frame_preprocessor_waxs = bluesky_darkframes.DarkFramePreprocessor(
     dark_plan=dark_plan,
     detector=waxs_det,
@@ -189,3 +199,4 @@ dark_frame_preprocessor_waxs_spirals = bluesky_darkframes.DarkFramePreprocessor(
 
 dark_frames_enable_waxs = make_decorator(dark_frame_preprocessor_waxs)()
 # dark_frames_enable_saxs = make_decorator(dark_frame_preprocessor_saxs)()
+"""

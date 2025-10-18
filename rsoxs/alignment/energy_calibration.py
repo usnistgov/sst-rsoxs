@@ -91,12 +91,12 @@ def calibrate_pgm_offsets(
 
 def scan_pgm_angles(
     lines_per_mm_pgm = 250,
-    polarizations = np.full(shape = 5, fill_value = 90),
-    energies = np.full(shape = 5, fill_value = 291.65),
+    polarizations = [90, 90, 90, 90, 90], #polarizations = np.full(shape = 5, fill_value = 90),
+    energies = [291.65, 291.65, 291.65, 291.65, 291.65], #energies = np.full(shape = 5, fill_value = 291.65),
     cffs = [1.35, 1.4, 1.45, 1.5, 1.55],
-    diffraction_orders = np.full(shape = 5, fill_value = 1),
-    sample_ids = np.full(5, "HOPG"),
-    sample_angles = np.full(shape = 5, fill_value = 20),
+    diffraction_orders = [1, 1, 1, 1, 1], #diffraction_orders = np.full(shape = 5, fill_value = 1),
+    sample_ids = ["HOPG", "HOPG", "HOPG", "HOPG", "HOPG"], #sample_ids = np.full(5, "HOPG"),
+    sample_angles = [20, 20, 20, 20, 20],#sample_angles = np.full(shape = 5, fill_value = 20),
     radius_search_window = 0.8,
     number_points = 100,
     
@@ -108,6 +108,7 @@ def scan_pgm_angles(
 
     Number of scans is equal to the number of elements in the polarizations, energies, cffs, diffraction orders, sample_ids, and sample_angles lists.
     All of these lists should have identical lengths.
+    Note, cannot use np.full to define the defaults because numpy arrays cannot be evaluated with ast.literal_eval().
     
     Args:
         lines_per_mm_pgm: int
@@ -154,7 +155,7 @@ def scan_pgm_angles(
              sample_id,
              sample_angle,
         ) in zip(
-                 polarizatiosn, 
+                 polarizations, 
                  energies,
                  cffs,
                  diffraction_orders,
@@ -162,12 +163,13 @@ def scan_pgm_angles(
                  sample_angles,
         ):
             ## Load beamline configuration and sample
-            yield from bps.mv(en.polarization, polarization)
-            yield from bps.mv(en, energy)
+            ## 20251018 - for the sake of testing during maintenance period, the polarization and energy moves will be commented
+            #yield from bps.mv(en.polarization, polarization)
+            #yield from bps.mv(en, energy)
             m2_angle, pgm_angle = get_mirror_grating_angles(en_eV = energy, 
                                                             cff = cff, 
                                                             k_invmm = lines_per_mm_pgm, 
-                                                            m = m_order)
+                                                            m = diffraction_order)
             yield from bps.mv(grating.velocity, 0.1, mirror2.velocity, 0.1)
             yield from bps.sleep(1)
             yield from bps.mv(grating, pgm_angle, mirror2, m2_angle)
@@ -208,8 +210,8 @@ def scan_pgm_angles(
 def correct_m2_pgm_offsets(
     m2_angles,
     pgm_angles,
-    diffraction_orders = np.full(shape = 5, fill_value = 1),
-    energies = np.full(shape = 5, fill_value = 291.65),
+    diffraction_orders = [1, 1, 1, 1, 1], #diffraction_orders = np.full(shape = 5, fill_value = 1),
+    energies = [291.65, 291.65, 291.65, 291.65, 291.65], #energies = np.full(shape = 5, fill_value = 291.65),
     lines_per_mm_pgm = 250,
 ):
     """
