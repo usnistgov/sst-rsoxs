@@ -163,9 +163,8 @@ def scan_pgm_angles(
                  sample_angles,
         ):
             ## Load beamline configuration and sample
-            ## 20251018 - for the sake of testing during maintenance period, the polarization and energy moves will be commented
-            #yield from bps.mv(en.polarization, polarization)
-            #yield from bps.mv(en, energy)
+            yield from bps.mv(en.polarization, polarization)
+            yield from bps.mv(en, energy)
             m2_angle, pgm_angle = get_mirror_grating_angles(en_eV = energy, 
                                                             cff = cff, 
                                                             k_invmm = lines_per_mm_pgm, 
