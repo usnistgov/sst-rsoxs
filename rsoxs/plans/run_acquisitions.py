@@ -28,7 +28,7 @@ from nbs_bl.hw import (
     slits3,
     manipulator,
     sam_Th,
-    #waxs_det,
+    waxs_det,
     Det_W,
 )
 from ..configuration_setup.configuration_load_save_sanitize import (

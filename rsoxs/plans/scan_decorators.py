@@ -7,7 +7,7 @@ from nbs_bl.hw import (
     shutter_control, 
     shutter_open_time, 
     shutter_y, 
-    #waxs_det, 
+    waxs_det, 
 )
 from bluesky.preprocessors import finalize_wrapper
 

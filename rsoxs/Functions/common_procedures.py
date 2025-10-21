@@ -24,7 +24,7 @@ from nbs_bl.hw import (
     rsoxs_ll_gpwr,
     gvll,
     beamstop_waxs,
-    #waxs_det,
+    waxs_det,
     DownstreamLargeDiode_int,
     Sample_TEY,
     Sample_TEY_int,

@@ -43,7 +43,7 @@ from nbs_bl.hw import (
     sam_Z,
     sam_Th,
     beamstop_waxs,
-    #waxs_det,
+    waxs_det,
     Beamstop_SAXS,
     #saxs_det,
     DiodeRange,

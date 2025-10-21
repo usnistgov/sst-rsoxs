@@ -12,7 +12,7 @@ from nbs_bl.hw import (
     sam_X,
     BeamStopS,
     BeamStopW,
-    #waxs_det,
+    waxs_det,
     Det_W,
     Det_S,
     shutter_y,
