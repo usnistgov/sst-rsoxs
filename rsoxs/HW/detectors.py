@@ -71,52 +71,39 @@ def exposure():
 
 def snapshot(secs=0, count=1, name=None, energy=None, detn="waxs", n_exp=1):
     """
-    snap of detectors to clear any charge from light hitting them - needed before starting scans or snapping images
-    :return:
+    Takes one or more images.
+    Also useful to clear out any charge accumulated in the detector.
+    
+    In the past: needed before starting scans or snapping images
+    TODO: find out if the above is still relevant.  Doesn't seem so.
+    
+    
+    TODO: remove name and energy after verifying that they are not used elsewhere.  They are not used in snapwaxs.
+    
     """
-    sw = {"waxs": waxs_det}  # , "waxs": waxs_det}
-    det = sw[detn]
-    if count == 1:
-        counts = ""
-    elif count <= 0:
-        count = 1
-        counts = ""
-    else:
-        count = round(count)
-        counts = "s"
-    if secs <= 0:
-        secs = det.cam.acquire_time.get()
-
-    if secs == 1:
-        secss = ""
-    else:
-        secss = "s"
+    cameras_lookup = {"waxs": waxs_det} ## Used to have SAXS camera as well
+    camera = cameras_lookup[detn]
+   
+    if count <= 1: count = 1 ## Should take at least one image
+	 else: count = round(count) ## count should be int
 
     if isinstance(energy, float):
         yield from bps.mv(en, energy)
 
     boxed_text(
         "Snapshot",
-        "Taking {} snapshot{} of {} second{} with {} named {} at {} eV".format(
-            count, counts, secs, secss, det.name, name, energy
+        "Taking {} snapshot(s) of {} second(s) with {}".format(
+            count, secs, camera.name
         ),
         "red",
     )
-    samsave = RE.md["sample_name"]
-    if secs:
-        set_exposure(secs)
-    if name is not None:
-        RE.md["sample_name"] = name
-    # yield from bp.count([det, en.energy], num=count)
-    # print(det)
-    # print(bp.count)
-    # print(count)
-    det.number_exposures = n_exp
-    yield from bp.count(
-        [det] + default_sigs, num=count, per_shot=partial(trigger_and_read_with_shutter, shutter=shutter_control)
+    
+    yield from nbs_count(
+                         num = count,
+                         use_2d_detector = True,
+                         dwell = secs,
+                         n_exposures = n_exp,
     )
-    if name is not None:
-        RE.md["sample_name"] = samsave
 
 
 # adding for testing
