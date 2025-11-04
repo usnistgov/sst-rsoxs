@@ -85,7 +85,7 @@ def snapshot(secs=0, count=1, name=None, energy=None, detn="waxs", n_exp=1):
     camera = cameras_lookup[detn]
    
     if count <= 1: count = 1 ## Should take at least one image
-	 else: count = round(count) ## count should be int
+    else: count = round(count) ## count should be int
 
     if isinstance(energy, float):
         yield from bps.mv(en, energy)
