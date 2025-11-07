@@ -12,7 +12,6 @@ from nbs_bl.hw import (
     sam_X,
     BeamStopS,
     BeamStopW,
-    waxs_det,
     Det_W,
     Det_S,
     shutter_y,
@@ -24,6 +23,7 @@ from nbs_bl.hw import (
 from rsoxs.configuration_setup.configurations_instrument import clear_rsoxs #from .configurations import all_out
 from ..HW.detectors import (
     set_exposure,
+    waxs_det,
     snapshot,
     exposure,
 )

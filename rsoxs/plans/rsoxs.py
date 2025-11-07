@@ -9,6 +9,7 @@ from nbs_bl.hw import (
     shutter_open_time,
     sam_X,
     sam_Y,
+    waxs_det,
 )
 
 from nbs_bl.beamline import GLOBAL_BEAMLINE

@@ -98,7 +98,7 @@ suspend_current = SuspendFloor(
     post_plan=beamup_notice,
 )
 
-"""
+
 suspend_waxs_temp_low = SuspendFloor(
    waxs_det.cam.temperature_actual,
    resume_thresh=-85,
@@ -119,7 +119,7 @@ suspend_waxs_temp_high = SuspendCeil(
    pre_plan=temp_bad_notice,
    post_plan=temp_ok_notice,
 )
-"""
+
 
 # suspend_saxs_temp_low = SuspendFloor(
     # saxs_det.cam.temperature_actual,
@@ -290,7 +290,5 @@ def waxs_normal_mode():
 # install preprocessors
 waxs_normal_mode()
 # RE.preprocessors.append(dark_frame_preprocessor_saxs)
-
-
 # install handlers for errors and install suspenders
 turn_on_checks()
