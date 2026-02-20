@@ -204,7 +204,7 @@ default_configurations = {
         {"motor": slits1.vcenter, "position": -0.55, "order": 0},
         {"motor": slits1.hcenter, "position": -0.18, "order": 0},
         {"motor": slits2.vcenter, "position": -0.873, "order": 0},
-        {"motor": slits2.hcenter, "position": -0.1, "order": 0},
+        {"motor": slits2.hcenter, "position": -0.06, "order": 0},
         {"motor": slits3.vcenter, "position": -0.45, "order": 0},
         {"motor": slits3.hcenter, "position": 0.2, "order": 0},
     ],
