@@ -53,21 +53,22 @@ def night_20260220():
     """
     """
 
+    """
     ## Fluorescence screen images of beam cut down by FOE slits
     ## FE slits hsize and vsize = 0 for all these scans
     ## Notes for 20260220 night...do a series wehre we start open adn close of towards the targets below
     ## FE slits hsize = 0.1, vsize = 4 to see tall beam
     ## FOE slits vsize = 10, vcenter = 0, hsize = 0, hcenter = 2.1
-    ## slits 2 hsize = 0.15
+    ## slits 2 hsize = 0.15 --> no need because the lobes go away after pulling out I0 mesh
     comment = "Visualizing how beam is cut down.  "
-    comment += "FE slits hsize = 0.1 and vsize = 4.  " ## Or not?
+    comment += "FE slits hsize = 0.1 and vsize = 4.  "
     comment += "SRS570 sensitivities: DM7 photodiode sensitivity = 1 uA/V.  I0 sensitivity = 5 nA/V.  "
     yield from load_samp("OpenBeam") ## Load sample
     yield from set_polarization(90) ## p polarization
-    yield from load_configuration("DM7_FluorescenceImage")
+    ## FE slits hsize = 0.1, vsize = 4 to see tall beam
+    yield from load_configuration("DM7_FluorescenceImage_BroadbandReflectivity")
     yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
     yield from bps.mv(slits1.vsize, 10, slits1.hsize, 10, slits2.vsize, 10, slits2.hsize, 10, slits3.vsize, 10, slits3.hsize, 10)
-    ## FE slits hsize = 0.1, vsize = 4 to see tall beam
     energy_parameters = (285, 6.65, 291.65)
     slits_foe_hsizes_to_scan = np.arange(6, -0.1, -0.1)
     for slits_foe_hsize in slits_foe_hsizes_to_scan:
@@ -78,52 +79,181 @@ def night_20260220():
                                     dwell=1,
                                     comment = comment,
                                     )
-    yield from bps.mv(slits_foe.hsize, 0, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
-    yield from bps.mv(slits2.hsize, 0.15)
-    yield from nbs_energy_scan(
-                                *energy_parameters,
-                                extra_dets = [fs13_cam],
-                                dwell=1,
-                                comment = comment,
-                                )
-    yield from load_configuration("DM7_FluorescenceImage")
+    yield from load_configuration("DM7_FluorescenceImage_BroadbandReflectivity")
     yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
     yield from bps.mv(slits1.vsize, 10, slits1.hsize, 10, slits2.vsize, 10, slits2.hsize, 10, slits3.vsize, 10, slits3.hsize, 10)
+    """
+    
     
     
 
 
-    ## CFF series
+    ## CFF series with images
     comment = "Trying to focus beam on fluorescence screen and get spectrum across vertical cut.  "
     comment += "FE slits hsize and vsize = 1.5.  " 
     comment += "SRS570 sensitivities: DM7 photodiode sensitivity = 1 uA/V.  I0 sensitivity = 5 nA/V.  "
 
-    yield from load_configuration("DM7_FluorescenceImage")
+    ## FE slits hsize = 1.5, vsize = 1.5
+    yield from load_configuration("DM7_FluorescenceImage_BroadbandReflectivity")
     yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
-    yield from bps.mv(slits1.vsize, 10, slits1.hsize, 10, slits2.vsize, 10, slits2.hsize, 10, slits3.vsize, 10, slits3.hsize, 10)
     yield from set_polarization(90) ## p polarization
     yield from bps.mv(en, 285) ## Where PS has sharpest resonance
 
+    cffs_to_scan = (1.5, 2.5, 0.05) ## Didn't find proper limits, so I'll try this range for now.
+
     for sample_id in ["ps_50nm", "ps_25nm"]:
         yield from load_samp(sample_id)
-
-        cffs_to_scan = (1, 3, 0.05) ## TODO: verify that the range can be attained
+        
         yield from nbs_list_scan(
-            en.cff, ## TODO: verify that en.cff exists
+            en.monoen.cff,
             cffs_to_scan, 
             extra_dets = [fs13_cam],
             dwell=1,
             comment=comment,
             ) 
     
-    yield from load_configuration("DM7_FluorescenceImage")
+    yield from load_configuration("DM7_FluorescenceImage_BroadbandReflectivity")
     yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
-    yield from bps.mv(slits1.vsize, 10, slits1.hsize, 10, slits2.vsize, 10, slits2.hsize, 10, slits3.vsize, 10, slits3.hsize, 10)
     yield from set_polarization(90) ## p polarization
     yield from bps.mv(en, 285) ## Where PS has sharpest resonance
-    yield from bps.mv(en.cff, 1.7)
+    yield from bps.mv(en.monoen.cff, 1.7)
 
 
+
+    ## CFF series with nexafs scans
+    yield from load_configuration("DM7NEXAFS_BroadbandReflectivity")
+    yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
+    yield from set_polarization(90) ## p polarization
+
+    comment = "PS NEXAFS at different CFFs.  "
+    comment += "FE slits hsize and vsize = 1.5.  " 
+    comment += "SRS570 sensitivities: DM7 photodiode sensitivity = 1 uA/V.  I0 sensitivity = 5 nA/V.  "
+
+    energy_parameters = (250, 1.28, 282, 0.3, 297, 1.325, 350)
+
+    for cff in cffs_to_scan:
+        yield from bps.mv(en.monoen.cff, cff)
+
+        for sample_id in ["blank_window", "ps_50nm", "ps_25nm"]:
+            yield from load_samp(sample_id)
+            yield from nbs_energy_scan(
+                                    *energy_parameters,
+                                    dwell=1,
+                                    comment = comment,
+                                    )
+
+    yield from load_configuration("DM7NEXAFS_BroadbandReflectivity")
+    yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
+    yield from set_polarization(90) ## p polarization
+    yield from bps.mv(en.monoen.cff, 1.7)
+
+
+    ## Testing for repeat characters!!! woohoo!
+    ## knife edge without I0
+
+    yield from load_configuration("DM7NEXAFS_BroadbandReflectivity")
+    yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
+    yield from set_polarization(90) ## p polarization
+    yield from load_samp("OpenBeam")
+
+    comment = "Knife edge with bottom of bar with no I0 mesh.  "
+    comment += "FE slits hsize and vsize = 1.5.  "
+    comment += "SRS570 sensitivities: DM7 photodiode sensitivity = 1 uA/V.  I0 sensitivity = 5 nA/V.  "
+
+    sam_Y_to_scan = np.arange(10, 5.45, -0.05)
+    yield from nbs_list_scan(
+        sam_Y, 
+        sam_Y_to_scan, 
+        comment=comment,
+        )
+    
+    yield from load_configuration("DM7NEXAFS_BroadbandReflectivity")
+    yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
+    yield from set_polarization(90) ## p polarization
+    yield from load_samp("OpenBeam")
+
+    comment = "Knife edge with slit 3 outboard blade with no I0 mesh.  "
+    comment += "FE slits hsize and vsize = 1.5.  "
+    comment += "SRS570 sensitivities: DM7 photodiode sensitivity = 1 uA/V.  I0 sensitivity = 5 nA/V.  "
+
+    slits3_outboard_to_scan = np.arange(5.2, -1, -0.05)
+    yield from nbs_list_scan(
+        slits3.outboard, 
+        slits3_outboard_to_scan, 
+        comment=comment,
+        )
+    
+    yield from load_configuration("DM7NEXAFS_BroadbandReflectivity")
+    yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
+    yield from set_polarization(90) ## p polarization
+    
+    comment = "Knife edge with PS transmission samples with no I0.  "
+    comment += "FE slits hsize and vsize = 1.5.  "
+    comment += "SRS570 sensitivities: DM7 photodiode sensitivity = 1 uA/V.  I0 sensitivity = 5 nA/V.  "
+
+    sample_id = "ps_50nm"
+    yield from load_samp(sample_id)
+    sam_Y_to_scan = np.arange(-38.8, -34.8, 0.05)
+    yield from nbs_list_scan(
+        sam_Y, 
+        sam_Y_to_scan, 
+        comment=comment,
+        )
+    yield from load_samp(sample_id)
+    sam_X_to_scan = np.arange(-0.5, 3.5, 0.05)
+    yield from nbs_list_scan(
+        sam_X, 
+        sam_X_to_scan, 
+        comment=comment,
+        )
+    yield from load_samp(sample_id)
+
+    sample_id = "ps_25nm"
+    yield from load_samp(sample_id)
+    sam_Y_to_scan = np.arange(-38.6, -34.6, 0.05)
+    yield from nbs_list_scan(
+        sam_Y, 
+        sam_Y_to_scan, 
+        comment=comment,
+        )
+    yield from load_samp(sample_id)
+    sam_X_to_scan = np.arange(-8, -4, 0.05)
+    yield from nbs_list_scan(
+        sam_X, 
+        sam_X_to_scan, 
+        comment=comment,
+        )
+    yield from load_samp(sample_id)
+
+
+
+    ## NEXAFS at different positions
+    yield from load_configuration("DM7NEXAFS_BroadbandReflectivity")
+    yield from bps.mv(slits_foe.hsize, 6, slits_foe.hcenter, 2.1, slits_foe.vsize, 10, slits_foe.vcenter, 0)
+    yield from set_polarization(90) ## p polarization
+
+    comment = "NEXAFS scan at top/bottom edge of PS sample to gauge spread of energies at different regions of the beam.  "
+    comment += "No I0 mesh in beam path.  "
+    comment += "FE slits hsize and vsize = 1.5.  "
+    comment += "SRS570 sensitivities: DM7 photodiode sensitivity = 1 uA/V.  I0 sensitivity = 5 nA/V.  "
+
+    energy_parameters = (250, 1.28, 282, 0.3, 297, 1.325, 350)
+    
+    for sample_id in [
+        "blank_window", 
+        "ps_50nm_top", 
+        "ps_50nm_bottom", 
+        "ps_25nm_top", 
+        "ps_25nm_bottom",
+        "blank_window",
+        ]:
+        yield from load_samp(sample_id)
+
+        yield from nbs_energy_scan(
+                                    *energy_parameters,
+                                    dwell=1,
+                                    comment = comment,
+                                    )
 
 
 

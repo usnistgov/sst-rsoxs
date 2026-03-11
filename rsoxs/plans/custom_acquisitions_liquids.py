@@ -146,7 +146,7 @@ def TEM_acquisitions(
 
     ## Define sample metadata
     sample_metadata = {
-            "sample_id": "Water-2_20260212",
+            "sample_id": "Water-2_20260302",
             "project_name": "LiquidSolventsLibrary",
             "institution": "NIST",
             "proposal_id": 318915,
@@ -202,7 +202,7 @@ def TEM_acquisitions(
         for acq in queue:
             yield from run_acquisitions_single(
                 acquisition = acq, 
-                dryrun = dryrun,
+                dryrun = dryrun
                 )
             print("\n\n")
 
