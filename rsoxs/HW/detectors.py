@@ -9,10 +9,11 @@ from nbs_bl.hw import (
     shutter_control, 
     shutter_open_time, 
     #Det_S, 
-    #Det_W, 
+    Det_W, 
     sam_Th, 
     sam_X, 
-    sam_Y #, waxs_det
+    sam_Y, 
+    waxs_det,
 )
 from nbs_bl.plans.scans import nbs_count
 from nbs_bl.printing import boxed_text, run_report
@@ -161,7 +162,7 @@ def dark_plan(det):
 #     limit=20,
 # )
 
-"""
+
 dark_frame_preprocessor_waxs = bluesky_darkframes.DarkFramePreprocessor(
     dark_plan=dark_plan,
     detector=waxs_det,
@@ -196,4 +197,4 @@ dark_frame_preprocessor_waxs_spirals = bluesky_darkframes.DarkFramePreprocessor(
 dark_frames_enable_waxs = make_decorator(dark_frame_preprocessor_waxs)()
 # dark_frames_enable_saxs = make_decorator(dark_frame_preprocessor_saxs)()
 
-"""
+

@@ -444,6 +444,43 @@ def beam_motion_monitoring_20260313(
 
 
 
+
+def beam_motion_monitoring_20260313_2(
+        sample_id = "OpenBeam",
+):
+    """
+    Quick function to get started while I put together a more detailed one below.
+    """
+
+    ## Set up configuration
+    yield from load_configuration("DM7_FluorescenceImage")
+    yield from bps.mv(mir3.x, 0)
+
+    yield from load_samp("OpenBeam")
+
+    yield from set_polarization(0)
+    energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 2000]
+
+
+    for iteration in np.arange(0, 1000000, 1):
+
+        ## FS7
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs7_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs7_cam],
+            )
+    
+
+    yield from bps.mv(mir3.x, 24.2)
+    yield from bps.mv(mir3.pitch, 7.78)
+    yield from load_configuration("DM7_FluorescenceImage")
+
+
+
 def beam_motion_monitoring_FS1_20260216(
         sample_id = "OpenBeam",
 ):

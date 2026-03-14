@@ -3,7 +3,7 @@ from nbs_bl.utils import merge_func
 import bluesky.plan_stubs as bps
 from functools import partial
 from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
-from nbs_bl.hw import shutter_control, shutter_open_time, shutter_y, en #waxs_det
+from nbs_bl.hw import shutter_control, shutter_open_time, shutter_y, en#, waxs_det
 from bluesky.preprocessors import finalize_wrapper
 
 #from nbs_bl.beamline import GLOBAL_BEAMLINE
