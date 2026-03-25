@@ -46,36 +46,31 @@ from ..alignment.energy_calibration import *
 
 
 
-def commissioning_scans_20260312():
+
+
+
+def commissioning_scans_20260315():
 
     #comment = "SRS570 sensitivities: I0 = 1 nA/V, TEY = 20 pA/V, DM7 photodiode = 50 nA/V"
-    comment = "SRS570 sensitivities: I0 = 100 pA/V, TEY = 20 pA/V, DM7 photodiode = 100 nA/V"
-    
-    energies_1 = np.concatenate((
-        np.array([200, 250]),
-        np.arange(300, 1100, 100)
-    ))
-    energies_2 = np.concatenate((
-        energies_1,
-        np.arange(1100, 2100, 100)
-    ))
+    #comment = "SRS570 sensitivities: I0 = 100 pA/V, TEY = 20 pA/V, DM7 photodiode = 100 nA/V"
+    comment = "SRS570 sensitivities: I0 = 1 nA/V, TEY = 20 nA/V, DM7 photodiode = 2 uA/V"
+
+
     m3_pitches_to_scan = np.arange(7.6, 8, 0.002)
     yield from m3_sweep(
             polarizations = [0],
-            #energies = [100, 200, 400],
-            #energies = [300, 600, 800],
-            energies = energies_2,
+            energies = None,
             m3_xs = [24.2],
             m3_pitches = m3_pitches_to_scan,
             configuration = "DM7NEXAFS",
             sample_id = "OpenBeam",
 
     )
+    for energy in np.arange(900, 100, -50):
+        yield from bps.mv(en, energy)
     m3_pitches_to_scan = np.arange(8, 7.6, -0.002)
     yield from m3_sweep(
             polarizations = [0],
-            #energies = [100, 200, 400],
-            #energies = [300, 600, 800],
             energies = None,
             m3_xs = [24.2],
             m3_pitches = m3_pitches_to_scan,
@@ -85,7 +80,7 @@ def commissioning_scans_20260312():
     )
 
 
-    yield from beam_motion_monitoring_20260312()
+    yield from beam_motion_monitoring_20260313()
     
     
     
@@ -395,7 +390,27 @@ def beam_motion_monitoring_20260313(
     Quick function to get started while I put together a more detailed one below.
     """
 
-    energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 2000]
+    ## Set up configuration
+    yield from bps.mv(mir1.x, 1.3)
+    yield from bps.mv(fs6_y, 1.5)
+    yield from bps.mv(mir3.x, 24.2)
+    yield from bps.mv(mir3.pitch, 7.78)
+    yield from load_configuration("DM7_FluorescenceImage")
+    ## Open all slits to get big beam
+    yield from bps.mv(
+        slits1.vsize, 10,
+        slits1.hsize, 10,
+        slits2.vsize, 10,
+        slits2.hsize, 10,
+        slits3.vsize, 10,
+        slits3.hsize, 10,
+        )
+
+    yield from load_samp("OpenBeam")
+
+    yield from set_polarization(0)
+    #energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 2000]
+    energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 1000]
 
 
     for iteration in np.arange(0, 1000000, 1):
@@ -459,7 +474,8 @@ def beam_motion_monitoring_20260313_2(
     yield from load_samp("OpenBeam")
 
     yield from set_polarization(0)
-    energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 2000]
+    #energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 2000]
+    energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 1000]
 
 
     for iteration in np.arange(0, 1000000, 1):

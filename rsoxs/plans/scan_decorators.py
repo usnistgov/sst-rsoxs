@@ -90,7 +90,7 @@ def rsoxs_waxs_decorator(func):
                         ).wait()  ## Intended to only count signal when shutter is open, but will not go below exposure time = 0.3
                     else:
                         print("Invalid time, exposure time not set")
-
+            
             old_n_exp = waxs_det.number_exposures
             waxs_det.number_exposures = n_exposures
             _extra_dets = [waxs_det]

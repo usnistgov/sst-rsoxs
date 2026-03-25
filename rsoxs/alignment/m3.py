@@ -81,7 +81,7 @@ def m3_sweep(
             energies_250grating_default,
             np.arange(1100, 2100, 100)
         ))
-        energies = energies_1200grating_default
+        energies = energies_250grating_default
     if m3_xs is None:
         m3_xs = np.arange(24, 24.5, 0.05)
     if m3_pitches is None:

@@ -301,7 +301,7 @@ default_configurations = {
     ],
 
     ## TODO: Add PSH7 positions
-    ## TODO: Add M4 positions, vertical = -10 to move out of the way
+    ## TODO: Add M4 positions, vertical = -10 to move out of the way.  All positions = 0 when it is in the way.
 
     "DM7_Retracted": [
         {"motor": dm7_y, "position": 30, "order": 0}, ## Found in this state on 20260129
