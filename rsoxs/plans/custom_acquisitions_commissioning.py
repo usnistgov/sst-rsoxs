@@ -45,45 +45,62 @@ from ..alignment.energy_calibration import *
 
 
 
-
-
-
-
-def commissioning_scans_20260315():
+def commissioning_scans_20260326():
 
     #comment = "SRS570 sensitivities: I0 = 1 nA/V, TEY = 20 pA/V, DM7 photodiode = 50 nA/V"
-    #comment = "SRS570 sensitivities: I0 = 100 pA/V, TEY = 20 pA/V, DM7 photodiode = 100 nA/V"
-    comment = "SRS570 sensitivities: I0 = 1 nA/V, TEY = 20 nA/V, DM7 photodiode = 2 uA/V"
+    ## 1200 grating, CFF = 1.7
+    comment = "SRS570 sensitivities: I0 = 100 pA/V, TEY = 20 pA/V, DM7 photodiode = 200 nA/V"
+
+    
+    for iteration in np.arange(0, 1, 1):
+        for polarization in [90]: #[0, 90, 45, 135]:
+            yield from set_polarization(polarization)
+
+            yield from load_samp("OpenBeam_Y345")
+            yield from nbs_energy_scan(250, 1.28, 282, 0.3, 297, 1.325, 350, comment = comment)
+            yield from nbs_energy_scan(370, 1, 397, 0.2, 407, 1, 440, comment = comment)
+            yield from nbs_energy_scan(500, 1, 525, 0.2, 540, 1, 560, comment = comment)
+            yield from nbs_energy_scan(650, 1.5, 680, 0.25, 700, 1.25, 740, comment = comment)
 
 
+    dm7_y_to_scan = np.arange(-20, -5, 0.1)
+    yield from nbs_list_scan(
+        dm7_y,
+        dm7_y_to_scan,
+        comment = comment,
+    )
+    
+
+
+
+
+def commissioning_scans_20260328():
+
+    comment = "SRS570 sensitivities: I0 = 100 pA/V, TEY = 20 pA/V, DM7 photodiode = 200 nA/V"
+
+
+    energies_250grating_default = np.concatenate((
+        np.array([90, 110, 130, 150, 200, 250]),
+        np.arange(300, 1100, 100)
+    ))
+    energies_1200grating_default = np.concatenate((
+        energies_250grating_default,
+        np.arange(1100, 2100, 100)
+    ))
     m3_pitches_to_scan = np.arange(7.6, 8, 0.002)
+    m3_xs = np.arange(24, 24.5, 0.05)
     yield from m3_sweep(
-            polarizations = [0],
-            energies = None,
-            m3_xs = [24.2],
-            m3_pitches = m3_pitches_to_scan,
-            configuration = "DM7NEXAFS",
-            sample_id = "OpenBeam",
-
-    )
-    for energy in np.arange(900, 100, -50):
-        yield from bps.mv(en, energy)
-    m3_pitches_to_scan = np.arange(8, 7.6, -0.002)
-    yield from m3_sweep(
-            polarizations = [0],
-            energies = None,
-            m3_xs = [24.2],
+            polarizations = [90, 0],
+            energies = energies_1200grating_default,
+            m3_xs = m3_xs,
             m3_pitches = m3_pitches_to_scan,
             configuration = "DM7NEXAFS",
             sample_id = "OpenBeam",
 
     )
 
-
-    yield from beam_motion_monitoring_20260313()
-    
-    
-    
+    print("Starting open-beam energy scans")
+    yield from load_configuration("DM7NEXAFS")
     for iteration in np.arange(0, 1000, 1):
         for polarization in [0, 90, 45, 135]:
             yield from set_polarization(polarization)
