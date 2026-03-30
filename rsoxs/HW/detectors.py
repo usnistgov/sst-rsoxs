@@ -1,4 +1,5 @@
 import bluesky.plan_stubs as bps
+from rsoxs.plans.plan_stubs import skinnystage, skinnyunstage
 import bluesky.plans as bp
 from bluesky.preprocessors import make_decorator
 import bluesky_darkframes
@@ -133,7 +134,10 @@ count = bp.count
 
 
 def dark_plan(det):
-    yield from det.skinnyunstage()
+    #yield from det.skinnyunstage()
+    yield from skinnyunstage(det)
+
+    #det.skinnyunstage()
     # yield from bps.mv(det.cam.shutter_mode, 0)
     ## Saves the number of exposures we would want to take for light images
     n_exp = det.cam.num_images.get()
@@ -141,19 +145,26 @@ def dark_plan(det):
     ## Disables shutter because the shutter needs to be closed to take a dark image.
     yield from bps.mv(det.cam.num_images, 1, det.cam.shutter_mode, 0)
     
-    yield from det.skinnystage()
+    #yield from det.skinnystage()
+    yield from skinnystage(det)
+    # det.skinnystage()
+    det.log.debug("Skinnystaged", det.name)
     yield from bps.trigger(det, group="darkframe-trigger")
     yield from bps.wait("darkframe-trigger")
     ## TODO: confirm if the below line is what is capturing the dark image
     snapshot = bluesky_darkframes.SnapshotDevice(det)
     
-    yield from det.skinnyunstage()
+    #yield from det.skinnyunstage()
+    yield from skinnyunstage(det)
+
+    #det.skinnyunstage()
     ## If the shutter is to be used for light images, it is enabled
     if det.useshutter:
         yield from bps.mv(det.cam.shutter_mode, 2)
     ## Desired number of exposures is restored for light images
     yield from bps.mv(det.cam.num_images, n_exp)
-    yield from det.skinnystage()
+    #yield from det.skinnystage()
+    yield from skinnystage(det)
     return snapshot
 
 

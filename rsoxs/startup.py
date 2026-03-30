@@ -21,21 +21,25 @@ from nbs_bl.plans.xas import *
 from nbs_bl.samples import *
 from rsoxs.redis_config import rsoxs_config
 
-
-# from databroker import Broker
-
 run_report(__file__)
 
-try:
-    from bluesky_queueserver import is_re_worker_active
-except ImportError:
-    # TODO: delete this when 'bluesky_queueserver' is distributed as part of collection environment
-    def is_re_worker_active():
-        return False
+from bluesky_queueserver import is_re_worker_active
 
-
-# RE = create_run_engine(setup=True)
 RE = bl.run_engine
+
+async def skinnyunstage(msg):
+    """
+    Generic command handler for all commands
+    """
+    command, obj, args, kwargs, _ = msg
+    ret = obj.skinnyunstage()
+
+async def skinnystage(msg):
+    command, obj, args, kwargs, _ = msg
+    ret = obj.skinnystage()
+
+RE.register_command("skinnystage", skinnystage)
+RE.register_command("skinnyunstage", skinnyunstage)
 
 if not is_re_worker_active():
     ns = get_ipython().user_ns
@@ -43,26 +47,10 @@ else:
     ns = {}
 if not is_re_worker_active():
     get_ipython().log.setLevel("ERROR")
-# db = Broker.named("rsoxs")  ## This can access scan information from Tiled (?)
-# db is defined manually so that configure_base
-# is not called multiple times when starting up
-# Bluesky on the beamline computer.
+
 sd = bl.supplemental_data
-# bec = ns["bec"]
 
-"""redis_md_settings = bl.settings.get("redis").get("md")
-
-mdredis = redis.Redis(
-    redis_md_settings.get("host", "info.sst.nsls2.bnl.gov"),
-    port=redis_md_settings.get("port", 6379),
-    db=redis_md_settings.get("db", 0),
-)"""
-# RE.md = RedisStatusDict(mdredis, prefix=redis_md_settings.get("prefix", ""))
-# RE.md = bl.md
 md = RE.md  ## The contents from md are added into the start document for the scan metadata in Tiled.
-# GLOBAL_USER_STATUS.add_status("USER_MD", RE.md)
-
-
 
 data_session_re = re.compile(r"^pass-(?P<proposal_number>\d+)$")
 
