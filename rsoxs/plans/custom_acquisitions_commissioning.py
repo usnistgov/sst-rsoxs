@@ -17,6 +17,7 @@ from nbs_bl.hw import (
     mir3,
     fs7_cam,
     slitsc,
+    sst_control,
     slits1,
     izero_cam,
     izero_y,
@@ -31,7 +32,7 @@ from nbs_bl.hw import (
     dm7_y,
 )
 
-
+from ..run_engine import md ## TODO: Is there a better way to do this?
 from rsoxs.configuration_setup.configurations_instrument import load_configuration
 from rsoxs.Functions.alignment import (
     #load_configuration, 
@@ -42,6 +43,51 @@ from rsoxs.HW.energy import set_polarization
 from ..alignment.m3 import *
 from ..alignment.energy_calibration import *
 
+
+
+
+
+def beam_time_startup():
+    """
+    Automates steps taken during beam time startup so that wiki will not have to be referred to, and steps will not have to be done separately and manually.
+    """
+
+    
+    print("The currently active proposal is ")
+    ## TODO: Is there a better way to do this than calling RE.md?
+    print("proposal_id: " + str(md["proposal"]["proposal_id"]))
+    print("title: " + str(md["proposal"]["title"]))
+    print("pi_name: " + str(md["proposal"]["pi_name"]))
+    print("\n")
+    print("Is this the correct proposal? (y/n)")
+    authenticated = input()
+    if authenticated != "y": 
+        ## TODO: Put instructions for using the GUI once the commissioning/GU proposal transition is fixed
+        print("Please authenticate into the correct beam time proposal using sync-experiment.")
+        print("To authenticate, open a new tab in the terminal and run the following command: ")
+        print("sync-experiment -b SST1 -e rsoxs -p YOUR_PROPOSAL_NUMBER")
+        print("You will be prompted for a username and password.  At the moment, a two-factor authentication push notification is not sent, but this may change.")
+        ## -b is for beamline, -e is for endstation, -p is for proposal number
+        ## The verbosity can be defined at the end of the command as needed (e.g., -v --verbose, -v --no-verbose)
+        return
+    
+    print("Have you obtained confirmation from other SST staff and/or prior users that they are not using the soft beam? (y/n)")
+    soft_beam_not_being_used = input()
+    if soft_beam_not_being_used != "y":
+        print("Please check that the soft beam is not being used to avoid disrupting someone else's measurement.")
+
+    
+    ## TODO: make new device, e.g., select_active_end_station, which has _target = ophyd.EpicsSignal, not EpicsSignalRO, so that I could change to RSoXS
+    ## TODO: use select_active_end_station.set("RSoXS") instead of yield from bps.mv(sst_control, "RSoXS")
+    ## Latter will use RE, but we have a suspender if RSoXS is not the active station
+    #print("Changing active endstation to RSoXS.")
+    #yield from bps.mv(sst_control, "RSoXS")
+
+    ## TODO: Probably have separate functions for changing grating and loading safe RSoXS configuration
+    ## TODO: For changing the grating, probably want to ultimately edit the grating_to_rsoxs function in sst_base directly, but test here first.
+    ## Want to have it check O2 bleed levels before making any movements.
+    
+    ## TODO: automate protocol outlined here: https://wiki-nsls2.bnl.gov/beamline7ID1/index.php?title=Beam_time_workflow_and_Bluesky_guide#Beam_time_startup
 
 
 
