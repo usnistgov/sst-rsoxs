@@ -23,6 +23,7 @@ from nbs_bl.hw import (
     slits2,
     slits3,
     manipulator,
+    sam_X,
     sam_Th,
     #waxs_det,
     #Det_W,
@@ -42,6 +43,48 @@ from ..alignment.m3 import *
 from ..alignment.energy_calibration import *
 
 
+
+
+
+def test_scans_prefect():
+    """
+    Prefect is used to write out 1D detector data to csv files and 2D detector data to tiff files.
+    The scans in this function will be used to test if the workflows are correctly writing out files.
+
+    """
+
+    comment = "Test scan to ensure data is written out by Prefect."
+
+    ## Test scan where multiple darks are taken in one scan
+    sam_X_to_scan = np.arange(0, 0.3, 0.1)
+    yield from nbs_list_scan(sam_X, sam_X_to_scan, use_2d_detector=True, dwell=1, n_exposures=1, comment=comment)
+
+    ## Test scan with repeat exposures on CCD
+    yield from nbs_count(
+        use_2d_detector = True,
+        num = 3,
+        n_exposures = 3,
+        dwell = 1,
+        comment = comment,
+        )
+    
+    ## Test scans with CCD without repeat exposures
+    yield from nbs_count(
+        use_2d_detector = True,
+        num = 3,
+        n_exposures = 1,
+        dwell = 1,
+        comment = comment,
+        )
+    
+    ## Test scans without CCD
+    yield from nbs_count(
+        use_2d_detector = False,
+        num = 3,
+        n_exposures = 1,
+        dwell = 1,
+        comment = comment,
+        )
 
 
 
