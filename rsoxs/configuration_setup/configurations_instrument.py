@@ -340,7 +340,7 @@ default_configurations = {
     ## TODO: Add M4 positions, vertical = -10 to move out of the way.  All positions = 0 when it is in the way.
 
     "DM7_Retracted": [
-        {"motor": dm7_y, "position": 30, "order": 0}, ## Found in this state on 20260129
+        {"motor": dm7_y, "position": 80, "order": 0}, 
     ],
     "DM7_Photodiode": [
         {"motor": dm7_y, "position": -12.25, "order": 0}, 
@@ -471,25 +471,24 @@ default_configurations["NoBeam_WAXS"] = [
 ## Not sure if this is necessary.  Had made it to run count scans when I don't have beam to test automated workflow.
 
 ## TODO: maybe have a Detectors_Retracted_Science and Detectors_Retracted_Commissioning version where the latter includes upstream fluorescence screens like FS1, FS6, and FS7?  Unsure how to treat I0 because I do treat it as a detector for commissioning purposes.
-default_configurations["Detectors_Retracted"] = [
-    {"motor": item["motor"], "position": item["position"], "order": item["order"]}
-    for item in default_configurations["WAXS_Retracted"] ## Protect detectors first
-]
-"""
-default_configurations["Detectors_Retracted"].extend(
-    {"motor": item["motor"], "position": item["position"], "order": int(item["order"])}
-    for item in default_configurations["SAXS_Retracted"]
-    )
-"""
-default_configurations["Detectors_Retracted"].extend(
-    {"motor": item["motor"], "position": item["position"], "order": int(item["order"])}
-    for item in default_configurations["DM7_Retracted"]
-    )
+default_configurations = create_hybrid_configuration(
+        new_configuration_name = "detectors_retracted",
+        configurations_dictionary = default_configurations, 
+        configurations_to_combine = [
+                "WAXS_Retracted",
+                #"SAXS_Retracted", ## No SAXS detector currently
+                #"DM7_Retracted", ## It is a detector, technically, but there is no need to move it in/out multiple times during an RSoXS beamline
+            ],
+        configurations_to_overwrite = [
+                
+            ],
+)
+
 
 
 default_configurations["RSoXS_Retracted"] = [
     {"motor": item["motor"], "position": item["position"], "order": item["order"]}
-    for item in default_configurations["Detectors_Retracted"] ## Protect detectors first
+    for item in default_configurations["detectors_retracted"] ## Protect detectors first
 ]
 default_configurations["RSoXS_Retracted"].extend(
     {"motor": item["motor"], "position": item["position"], "order": int(item["order"] + 1)}
@@ -559,7 +558,7 @@ default_configurations = create_hybrid_configuration(
         configurations_dictionary = default_configurations, #copy.deepcopy(default_configurations),
         configurations_to_combine = [
                 "RSoXS_Upstream",
-                "Detectors_Retracted"
+                "detectors_retracted"
             ],
         configurations_to_overwrite = [
                 "WAXS_Beamstop",
@@ -570,7 +569,7 @@ default_configurations = create_hybrid_configuration(
         configurations_dictionary = default_configurations, #copy.deepcopy(default_configurations),
         configurations_to_combine = [
                 "RSoXS_Upstream",
-                "Detectors_Retracted"
+                "detectors_retracted"
             ],
         configurations_to_overwrite = [
                 "WAXS_2D",
@@ -583,7 +582,7 @@ default_configurations = create_hybrid_configuration(
         configurations_dictionary = default_configurations, #copy.deepcopy(default_configurations),
         configurations_to_combine = [
                 "RSoXS_Upstream",
-                "Detectors_Retracted"
+                "detectors_retracted"
             ],
         configurations_to_overwrite = [
                 "DM7_Photodiode",
@@ -594,7 +593,7 @@ default_configurations = create_hybrid_configuration(
         configurations_dictionary = default_configurations, #copy.deepcopy(default_configurations),
         configurations_to_combine = [
                 "RSoXS_Upstream",
-                "Detectors_Retracted"
+                "detectors_retracted"
             ],
         configurations_to_overwrite = [
                 "DM7_FS13",
@@ -621,7 +620,7 @@ default_configurations["DM7NEXAFS_Liquids"] = [
 ]
 default_configurations["DM7NEXAFS_Liquids"].extend(
     {"motor": item["motor"], "position": item["position"], "order": int(item["order"] + 1)}
-    for item in default_configurations["Detectors_Retracted"]
+    for item in default_configurations["detectors_retracted"]
     )
 ## Start with all detectors retracted and then bring in the desired detectors
 devices_to_update = {item["motor"]: item for item in default_configurations["DM7_Photodiode"]}
@@ -658,7 +657,7 @@ default_configurations = create_hybrid_configuration(
         configurations_dictionary = default_configurations, 
         configurations_to_combine = [
                 "RSoXS_Upstream_BroadbandReflectivity",
-                "Detectors_Retracted"
+                "detectors_retracted"
             ],
         configurations_to_overwrite = [
                 "DM7_Photodiode",
@@ -669,7 +668,7 @@ default_configurations = create_hybrid_configuration(
         configurations_dictionary = default_configurations, 
         configurations_to_combine = [
                 "RSoXS_Upstream_BroadbandReflectivity",
-                "Detectors_Retracted"
+                "detectors_retracted"
             ],
         configurations_to_overwrite = [
                 "DM7_FS13",
