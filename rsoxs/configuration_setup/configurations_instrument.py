@@ -28,7 +28,7 @@ from nbs_bl.hw import (
     sam_X,
     TEMY,
     TEMZ,
-    #mir4OLD,
+    mir4,
     dm7_y,
 )
 
@@ -152,7 +152,9 @@ position_CameraWAXS_OutOfBeamPath = -94
 
 ## TODO: split into 2 dictionaries.  One that users can use and I can make a list of names to use in spreadsheet sanitization and then one dictionary that is used for one-time setup.
 default_configurations = {
-    "Mirrors": [
+    ## Grouping mirrors together 
+    ## Hexapod positions are not always reproducible, so ideally, these should only be moved once during the beam time and left in place afterward.
+    "mirrors": [
         {"motor": mir1.x, "position": 1.3, "order": 0},
         {"motor": mir1.y, "position": -18, "order": 1},
         {"motor": mir1.z, "position": 0, "order": 2},
@@ -162,11 +164,39 @@ default_configurations = {
         {"motor": mir3.x, "position": 24.2, "order": 0},
         {"motor": mir3.y, "position": 18, "order": 1},
         {"motor": mir3.z, "position": 0, "order": 2},
-        {"motor": mir3.pitch, "position": 7.84, "order": 3},
+        {"motor": mir3.pitch, "position": 7.72, "order": 3},
         {"motor": mir3.roll, "position": 0, "order": 4},
         {"motor": mir3.yaw, "position": 0, "order": 5},
+        {"motor": mir4.x, "position": 0, "order": 0},
+        {"motor": mir4.y, "position": -10, "order": 1},
+        {"motor": mir4.z, "position": 0, "order": 2},
+        {"motor": mir4.pitch, "position": 0, "order": 3},
+        {"motor": mir4.roll, "position": 0, "order": 4},
+        {"motor": mir4.yaw, "position": 0, "order": 5},
     ],
     ## TODO: include FOE slits here and try again to include front-end slits
+    "mirrors_nexafs": [
+        ## Ideally, M1 and M3 positions should remain  the same for all end stations, but we see some differences in practice so far
+        {"motor": mir1.x, "position": 1.3, "order": 0},
+        {"motor": mir1.y, "position": -18, "order": 1},
+        {"motor": mir1.z, "position": 0, "order": 2},
+        {"motor": mir1.pitch, "position": 0.57, "order": 3},
+        {"motor": mir1.roll, "position": 0, "order": 4},
+        {"motor": mir1.yaw, "position": 0, "order": 5},
+        {"motor": mir3.x, "position": 24.2, "order": 0},
+        {"motor": mir3.y, "position": 18, "order": 1},
+        {"motor": mir3.z, "position": 0, "order": 2},
+        {"motor": mir3.pitch, "position": 7.68, "order": 3},
+        {"motor": mir3.roll, "position": 0, "order": 4},
+        {"motor": mir3.yaw, "position": 0, "order": 5},
+        ## Below are the positions used for LARIAT, so can update these later with more suitable positions
+        {"motor": mir4.x, "position": -27, "order": 0},
+        {"motor": mir4.y, "position": 2, "order": 1},
+        {"motor": mir4.z, "position": 0, "order": 2},
+        {"motor": mir4.pitch, "position": -1.4, "order": 3},
+        {"motor": mir4.roll, "position": 0, "order": 4},
+        {"motor": mir4.yaw, "position": 0, "order": 5},
+    ],
 
     "FOESlits_HighFlux": [
         {"motor": slits_foe.vcenter, "position": 0, "order": 0},
