@@ -12,8 +12,10 @@ from nbs_bl.hw import (
 )
 from ..HW.signals import High_Gain_diode_i400, setup_diode_i400
 from .energyscancore import NEXAFS_fly_scan_core, new_en_scan_core, NEXAFS_step_scan_core
-from ..startup import RE
+from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
 from ..HW.slackbot import rsoxs_bot
+
+RE = bl.run_engine
 
 run_report(__file__)
 

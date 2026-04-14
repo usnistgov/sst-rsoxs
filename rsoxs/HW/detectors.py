@@ -4,7 +4,6 @@ import bluesky.plans as bp
 from bluesky.preprocessors import make_decorator
 import bluesky_darkframes
 
-from ..devices.detectors import RSOXSGreatEyesDetector, SimGreatEyes
 from nbs_bl.hw import (
     en, 
     shutter_control, 
@@ -18,9 +17,6 @@ from nbs_bl.hw import (
 )
 from nbs_bl.plans.scans import nbs_count
 from nbs_bl.printing import boxed_text, run_report
-from ..Functions.per_steps import trigger_and_read_with_shutter ## TODO: Not being used?  Delete?
-from ..startup import RE
-from functools import partial
 from ..HW.signals import default_sigs
 from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
 

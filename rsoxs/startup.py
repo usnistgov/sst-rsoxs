@@ -11,7 +11,6 @@ import httpx
 from bluesky.preprocessors import finalize_decorator
 from bluesky.run_engine import Msg
 import bluesky.plan_stubs as bps
-#from nbs_bl.run_engine import create_run_engine
 from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
 from nbs_bl.printing import run_report
 from nbs_bl.help import print_builtins
@@ -20,6 +19,26 @@ from nbs_bl.plans.scans import *
 from nbs_bl.plans.xas import *
 from nbs_bl.samples import *
 from rsoxs.redis_config import rsoxs_config
+
+from rsoxs.devices.cameras import configure_cameras
+from rsoxs.plans.rsoxs import *
+from rsoxs.plans.run_acquisitions import *
+from rsoxs.plans.custom_acquisitions_commissioning import *
+from rsoxs.plans.custom_acquisitions_liquids import *
+from rsoxs.plans.custom_acquisitions_broadband import *
+from rsoxs.configuration_setup.configuration_load_save import *
+from rsoxs.configuration_setup.configurations_instrument import *
+from rsoxs.alignment.fiducials import *
+from rsoxs.alignment.energy_calibration import *
+from rsoxs.alignment.m3 import *
+
+## Eliot's old code
+from rsoxs.HW.cameras import * ## 20250131 - temporary solution to using crosshairs, need a better long-term solution
+from rsoxs.Functions.alignment import *
+from rsoxs.Functions.alignment_local import *
+from rsoxs.Functions.magics import *
+from rsoxs.HW.contingencies import *
+
 
 run_report(__file__)
 
@@ -54,7 +73,7 @@ md = RE.md  ## The contents from md are added into the start document for the sc
 
 data_session_re = re.compile(r"^pass-(?P<proposal_number>\d+)$")
 
-
+'''
 def md_validator(md):
     """Validate RE.md before a plan runs.
 
@@ -121,6 +140,7 @@ def md_validator(md):
 
 # md_validator will be called before a plan runs
 RE.md_validator = md_validator
+'''
 
 # Optional: set any metadata that rarely changes.
 RE.md["beamline_id"] = "SST-1 RSoXS"

@@ -11,12 +11,9 @@ from rsoxs.Functions.alignment import (
     )
 from rsoxs.HW.energy import set_polarization
 from nbs_bl.plans.scans import nbs_count, nbs_list_scan, nbs_energy_scan
-from ..Functions.energyscancore import cdsaxs_scan
-from ..Functions.rsoxs_plans import do_rsoxs
 from rsoxs.plans.rsoxs import spiral_scan
 from .default_energy_parameters import energy_list_parameters
-from rsoxs.HW.detectors import snapshot
-from ..startup import rsoxs_config
+from ..redis_config import rsoxs_config
 from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
 from nbs_bl.hw import (
     en,

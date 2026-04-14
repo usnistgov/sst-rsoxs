@@ -9,7 +9,7 @@ from functools import partial
 import bluesky.plan_stubs as bps
 from ophyd import Device
 
-from ..startup import RE, rsoxs_config  # bec, db
+from ..redis_config import rsoxs_config  # bec, db
 from ..configuration_setup.configuration_load_save import sync_rsoxs_config_to_nbs_manipulator
 
 from nbs_bl.hw import (
@@ -40,7 +40,7 @@ from nbs_bl.hw import (
 from nbs_bl.samples import move_sample
 
 ## An alternative way to load devices is:
-# from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
+from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
 # Beamstop_SAXS = bl["Beamstop_SAXS"] ## what follows bl is the key in devices.toml in profile_collection contained in the []
 from ..HW.signals import default_sigs
 from ..HW.detectors import set_exposure  # , saxs_det
@@ -53,14 +53,9 @@ from .per_steps import take_exposure_corrected_reading, one_nd_sticky_exp_step
 
 from .alignment_local import *
 
-
 run_report(__file__)
 
-
-
-
-
-
+RE = bl.run_engine
 
 def load_samp(
         sample_id_or_index, 
@@ -104,8 +99,6 @@ def get_sample_id_and_index(sample_id_or_index):
         if sample_found == False: raise ValueError("Sample ID" + str(sample_id_or_index) + "not found.")
     
     return sample_id, int(sample_index)
-
-
 
 
 def duplicate_sample(sample_index, name_suffix):

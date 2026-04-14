@@ -94,8 +94,6 @@ from .per_steps import (
 
 run_report(__file__)
 
-
-
 @merge_func(nbs_gscan, use_func_name=False, omit_params=["motor"])
 def variable_energy_scan(*args, **kwargs):
     yield from bps.mv(shutter_control, 1)
@@ -161,23 +159,9 @@ def post_scan_hardware_reset():
     yield from bps.mv(en.scanlock, 0)
     yield from bps.mv(shutter_control, 0)
 
-
-
-
-
-
-
-
-
-
-
 ## Everything below is Eliot's old code.  Above is new scans.
 
 SLEEP_FOR_SHUTTER = 1
-
-
-
-
 
 
 def cleanup():

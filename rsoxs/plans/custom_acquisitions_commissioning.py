@@ -42,6 +42,7 @@ from rsoxs.Functions.alignment import (
 from rsoxs.HW.energy import set_polarization
 from ..alignment.m3 import *
 from ..alignment.energy_calibration import *
+from .cdsaxs import cdsaxs_scan
 
 
 
