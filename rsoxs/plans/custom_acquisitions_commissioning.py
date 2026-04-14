@@ -134,30 +134,21 @@ def test_scans_prefect():
 
 
 
-def commissioning_scans_20260326():
+def commissioning_scans_20260406():
 
-    #comment = "SRS570 sensitivities: I0 = 1 nA/V, TEY = 20 pA/V, DM7 photodiode = 50 nA/V"
-    ## 1200 grating, CFF = 1.7
-    comment = "SRS570 sensitivities: I0 = 100 pA/V, TEY = 20 pA/V, DM7 photodiode = 200 nA/V"
+    comment = "SRS570 sensitivities: I0 = 1 nA/V, TEY = 100 pA/V, WAXS photodiode = 10 nA/V"
 
     
     for iteration in np.arange(0, 1, 1):
         for polarization in [90]: #[0, 90, 45, 135]:
             yield from set_polarization(polarization)
 
-            yield from load_samp("OpenBeam_Y345")
+            yield from load_samp("OpenBeam_HOPG")
             yield from nbs_energy_scan(250, 1.28, 282, 0.3, 297, 1.325, 350, comment = comment)
             yield from nbs_energy_scan(370, 1, 397, 0.2, 407, 1, 440, comment = comment)
             yield from nbs_energy_scan(500, 1, 525, 0.2, 540, 1, 560, comment = comment)
             yield from nbs_energy_scan(650, 1.5, 680, 0.25, 700, 1.25, 740, comment = comment)
 
-
-    dm7_y_to_scan = np.arange(-20, -5, 0.1)
-    yield from nbs_list_scan(
-        dm7_y,
-        dm7_y_to_scan,
-        comment = comment,
-    )
     
 
 
