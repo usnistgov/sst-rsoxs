@@ -47,7 +47,7 @@ from nbs_bl.samples import add_current_position_as_sample
 
 
 def run_acquisitions_queue(
-        configuration = copy.deepcopy(rsoxs_config["bar"]),
+        configuration = copy.deepcopy(rsoxs_config.get("bar", {})),
         dryrun = True,
         sort_by = ["priority"], ## TODO: Not sure yet how to give it a list of groups in a particular order.  Maybe a list within a list.
         ):
