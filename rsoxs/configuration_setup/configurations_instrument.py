@@ -204,7 +204,7 @@ default_configurations = {
         {"motor": slits1.vcenter, "position": -0.55, "order": 0},
         {"motor": slits1.hcenter, "position": -0.18, "order": 0},
         {"motor": slits2.vcenter, "position": -0.873, "order": 0},
-        {"motor": slits2.hcenter, "position": -0.1, "order": 0},
+        {"motor": slits2.hcenter, "position": -0.06, "order": 0},
         {"motor": slits3.vcenter, "position": -0.45, "order": 0},
         {"motor": slits3.hcenter, "position": 0.2, "order": 0},
     ],
@@ -517,26 +517,21 @@ default_configurations["RSoXS_Retracted"].extend(
 #default_configurations["NEXAFSStation"]
 ## TODO: Do things like putting M4 into place, setting energy to 270 eV, polarization to 0.
 
-default_configurations["RSoXS_Upstream"] = [
-    {"motor": item["motor"], "position": item["position"], "order": item["order"]}
-    for item in default_configurations["SlitC_Retracted"]
-]
-default_configurations["RSoXS_Upstream"].extend(
-    {"motor": item["motor"], "position": item["position"], "order": int(item["order"])}
-    for item in default_configurations["RSoXSSlits_Centers"]
-    )
-default_configurations["RSoXS_Upstream"].extend(
-    {"motor": item["motor"], "position": item["position"], "order": int(item["order"])}
-    for item in default_configurations["RSoXSSlits_ApertureSizes_SolidSamples"]
-    )
-default_configurations["RSoXS_Upstream"].extend(
-    {"motor": item["motor"], "position": item["position"], "order": int(item["order"] + 1)}
-    for item in default_configurations["DMRSoXS_Mesh"]
-    )
-default_configurations["RSoXS_Upstream"].extend(
-    {"motor": item["motor"], "position": item["position"], "order": int(item["order"] + 1)}
-    for item in default_configurations["FastShutter"]
-    )
+
+default_configurations = create_hybrid_configuration(
+        new_configuration_name = "RSoXS_Upstream",
+        configurations_dictionary = default_configurations, 
+        configurations_to_combine = [
+                "SlitC_Retracted",
+                "RSoXSSlits_Centers",
+                "RSoXSSlits_ApertureSizes_SolidSamples",
+                "DMRSoXS_Mesh",
+                "FastShutter",
+            ],
+        configurations_to_overwrite = [
+                
+            ],
+)
 
 default_configurations["RSoXS_Upstream_Liquids"] = [
     {"motor": item["motor"], "position": item["position"], "order": item["order"]}
@@ -685,6 +680,58 @@ devices_to_update = {item["motor"]: item for item in default_configurations["DM7
 for item in default_configurations["DM7NEXAFS_Liquids_December2024"]:
     if item["motor"] in devices_to_update:
         item.update(devices_to_update[item["motor"]])
+
+
+
+
+
+
+
+
+
+
+default_configurations = create_hybrid_configuration(
+        new_configuration_name = "RSoXS_Upstream_BroadbandReflectivity",
+        configurations_dictionary = default_configurations, 
+        configurations_to_combine = [
+                "SlitC_Retracted",
+                "RSoXSSlits_Centers",
+                "RSoXSSlits_Retracted",
+                "DMRSoXS_Retracted",
+                "FastShutter",
+            ],
+        configurations_to_overwrite = [
+                
+            ],
+)
+default_configurations = create_hybrid_configuration(
+        new_configuration_name = "DM7NEXAFS_BroadbandReflectivity",
+        configurations_dictionary = default_configurations, 
+        configurations_to_combine = [
+                "RSoXS_Upstream_BroadbandReflectivity",
+                "Detectors_Retracted"
+            ],
+        configurations_to_overwrite = [
+                "DM7_Photodiode",
+            ],
+)
+default_configurations = create_hybrid_configuration(
+        new_configuration_name = "DM7_FluorescenceImage_BroadbandReflectivity",
+        configurations_dictionary = default_configurations, 
+        configurations_to_combine = [
+                "RSoXS_Upstream_BroadbandReflectivity",
+                "Detectors_Retracted"
+            ],
+        configurations_to_overwrite = [
+                "DM7_FS13",
+            ],
+)
+
+
+
+
+
+
 
 
 GLOBAL_CONFIGURATION_DICT.update(default_configurations)
