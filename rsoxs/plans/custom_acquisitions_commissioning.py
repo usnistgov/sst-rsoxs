@@ -11,12 +11,14 @@ from nbs_bl.hw import (
     mir1,
     fs1_cam,
     fs6_cam,
+    fs6_y,
     mirror2,
     grating,
     mir3,
     fs7_cam,
     slitsc,
     slits1,
+    izero_cam,
     izero_y,
     slits2,
     slits3,
@@ -44,46 +46,54 @@ from ..alignment.energy_calibration import *
 
 
 
-def commissioning_scans_20260205():
 
-    slit1_vsizes_to_scan = np.arange(0.09, 0.005, -0.005)
-    yield from energy_resolution_series(
-        sample_id = "HOPG_guess",
-        energy_parameters = "carbon_NEXAFS_slow",
-        slit1_vsizes = slit1_vsizes_to_scan,     
-    )
 
-    energies_to_scan = np.arange(400, 2100, 100)
+
+def commissioning_scans_20260315():
+
+    #comment = "SRS570 sensitivities: I0 = 1 nA/V, TEY = 20 pA/V, DM7 photodiode = 50 nA/V"
+    #comment = "SRS570 sensitivities: I0 = 100 pA/V, TEY = 20 pA/V, DM7 photodiode = 100 nA/V"
+    comment = "SRS570 sensitivities: I0 = 1 nA/V, TEY = 20 nA/V, DM7 photodiode = 2 uA/V"
+
+
+    m3_pitches_to_scan = np.arange(7.6, 8, 0.002)
     yield from m3_sweep(
             polarizations = [0],
-            energies = energies_to_scan,
-            m3_xs = None,
-            m3_pitches = None,
-            configuration = "WAXSNEXAFS",
-            sample_id = "OpenBeam_SolidY345",
-
-    )
-    yield from m3_sweep(
-            polarizations = [90],
             energies = None,
-            m3_xs = None,
-            m3_pitches = None,
-            configuration = "WAXSNEXAFS",
-            sample_id = "OpenBeam_SolidY345",
+            m3_xs = [24.2],
+            m3_pitches = m3_pitches_to_scan,
+            configuration = "DM7NEXAFS",
+            sample_id = "OpenBeam",
 
     )
-    #yield from I0_mesh_vertical_profile_energy_scan()
+    for energy in np.arange(900, 100, -50):
+        yield from bps.mv(en, energy)
+    m3_pitches_to_scan = np.arange(8, 7.6, -0.002)
+    yield from m3_sweep(
+            polarizations = [0],
+            energies = None,
+            m3_xs = [24.2],
+            m3_pitches = m3_pitches_to_scan,
+            configuration = "DM7NEXAFS",
+            sample_id = "OpenBeam",
 
-    #yield from open_beam_waxs_photodiode_scans(iterations=1)
-    yield from load_samp("OpenBeam_SolidY345")
+    )
+
+
+    yield from beam_motion_monitoring_20260313()
+    
+    
+    
     for iteration in np.arange(0, 1000, 1):
         for polarization in [0, 90, 45, 135]:
             yield from set_polarization(polarization)
-            yield from nbs_energy_scan(250, 1.28, 282, 0.3, 297, 1.325, 350)
-            yield from nbs_energy_scan(370, 1, 397, 0.2, 407, 1, 440)
-            yield from nbs_energy_scan(500, 1, 525, 0.2, 540, 1, 560)
-            yield from nbs_energy_scan(650, 1.5, 680, 0.25, 700, 1.25, 740)
-            yield from nbs_energy_scan(1820, 1.25, 1840, 0.25, 1860, 1.25, 1910)
+
+            yield from load_samp("OpenBeam")
+            yield from nbs_energy_scan(250, 1.28, 282, 0.3, 297, 1.325, 350, comment = comment)
+            yield from nbs_energy_scan(370, 1, 397, 0.2, 407, 1, 440, comment = comment)
+            yield from nbs_energy_scan(500, 1, 525, 0.2, 540, 1, 560, comment = comment)
+            yield from nbs_energy_scan(650, 1.5, 680, 0.25, 700, 1.25, 740, comment = comment)
+    
 
 
 
@@ -259,6 +269,233 @@ def M1_parameter_sweep_FS6():
 
 
 
+def beam_motion_monitoring_20260312(
+        sample_id = "OpenBeam",
+):
+    """
+    Quick function to get started while I put together a more detailed one below.
+    """
+
+    ## Set up configuration
+    yield from bps.mv(mir1.x, 1.3)
+    yield from bps.mv(fs6_y, 1.5)
+    yield from bps.mv(mir3.x, 24.2)
+    yield from bps.mv(mir3.pitch, 7.78)
+    yield from load_configuration("DM7_FluorescenceImage")
+    ## Open all slits to get big beam
+    yield from bps.mv(
+        slits1.vsize, 10,
+        slits1.hsize, 10,
+        slits2.vsize, 10,
+        slits2.hsize, 10,
+        slits3.vsize, 10,
+        slits3.hsize, 10,
+        )
+
+    yield from load_samp("OpenBeam")
+
+    yield from set_polarization(0)
+    energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 2000]
+
+
+    for iteration in np.arange(0, 1000000, 1):
+
+        ## FS13
+        yield from load_configuration("DM7_FS13")
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs13_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs13_cam],
+            )
+        ## Without I0 to see if we get streaky image
+        yield from load_configuration("DMRSoXS_Retracted")
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs13_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs13_cam],
+            )
+        
+        
+        ## FSRSoXS
+        yield from load_configuration("DMRSoXS_FluorescenceScreen")
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [izero_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [izero_cam],
+            )
+        
+
+        ## FS7
+        yield from bps.mv(mir3.x, 0)
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs7_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs7_cam],
+            )
+        
+
+        ## FS6
+        yield from bps.mv(fs6_y, -17)
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs6_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs6_cam],
+            )
+        
+        
+        ## FS1
+        yield from bps.mv(mir1.x, -5)
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs1_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs1_cam],
+            )
+
+
+
+        ## Restore all configurations
+        yield from bps.mv(mir1.x, 1.3)
+        yield from bps.mv(fs6_y, 1.5)
+        yield from bps.mv(mir3.x, 24.2)
+        yield from load_configuration("DMRSoXS_Mesh")
+    
+
+
+    yield from load_configuration("DM7_FluorescenceImage")
+
+
+
+def beam_motion_monitoring_20260313(
+        sample_id = "OpenBeam",
+):
+    """
+    Quick function to get started while I put together a more detailed one below.
+    """
+
+    ## Set up configuration
+    yield from bps.mv(mir1.x, 1.3)
+    yield from bps.mv(fs6_y, 1.5)
+    yield from bps.mv(mir3.x, 24.2)
+    yield from bps.mv(mir3.pitch, 7.78)
+    yield from load_configuration("DM7_FluorescenceImage")
+    ## Open all slits to get big beam
+    yield from bps.mv(
+        slits1.vsize, 10,
+        slits1.hsize, 10,
+        slits2.vsize, 10,
+        slits2.hsize, 10,
+        slits3.vsize, 10,
+        slits3.hsize, 10,
+        )
+
+    yield from load_samp("OpenBeam")
+
+    yield from set_polarization(0)
+    #energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 2000]
+    energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 1000]
+
+
+    for iteration in np.arange(0, 1000000, 1):
+
+        ## FS13
+        yield from load_configuration("DM7_FS13")
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs13_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs13_cam],
+            )
+        ## Without I0 to see if we get streaky image
+        yield from load_configuration("DMRSoXS_Retracted")
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs13_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs13_cam],
+            )
+        
+        
+        ## FSRSoXS
+        yield from load_configuration("DMRSoXS_FluorescenceScreen")
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [izero_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [izero_cam],
+            )
+     
+
+        ## Restore all configurations
+        yield from load_configuration("DMRSoXS_Mesh")
+    
+
+
+    yield from load_configuration("DM7_FluorescenceImage")
+
+
+
+
+
+def beam_motion_monitoring_20260313_2(
+        sample_id = "OpenBeam",
+):
+    """
+    Quick function to get started while I put together a more detailed one below.
+    """
+
+    ## Set up configuration
+    yield from load_configuration("DM7_FluorescenceImage")
+    yield from bps.mv(mir3.x, 0)
+
+    yield from load_samp("OpenBeam")
+
+    yield from set_polarization(0)
+    #energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 2000]
+    energy_parameters = [100, 100, 200, 91.65, 291.65, 8.35, 300, 100, 1000]
+
+
+    for iteration in np.arange(0, 1000000, 1):
+
+        ## FS7
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            extra_dets = [fs7_cam],
+            )
+        yield from nbs_energy_scan(
+            *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
+            extra_dets = [fs7_cam],
+            )
+    
+
+    yield from bps.mv(mir3.x, 24.2)
+    yield from bps.mv(mir3.pitch, 7.78)
+    yield from load_configuration("DM7_FluorescenceImage")
+
+
 
 def beam_motion_monitoring_FS1_20260216(
         sample_id = "OpenBeam",
@@ -285,6 +522,7 @@ def beam_motion_monitoring_FS1_20260216(
             *energy_parameters[::-1], ## Reverse the energy list parameters to produce reversed energy list
             extra_dets = [fs1_cam],
             )
+        
 
 
 

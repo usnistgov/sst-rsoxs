@@ -210,7 +210,13 @@ class RSOXSGreatEyesDetector(SingleTriggerV33, GreatEyesDetector):
 
         # self.stage_sigs["cam.num_images"] = self.number_exposures # if we do it this way, the dark stage will also set this?
         self.cam.num_images.set(self.number_exposures).wait()
-        return [self].append(super().stage(*args, **kwargs))
+
+        ## The below line was used in 2025 and earlier.
+        ## However, it might be the source of errors in 2026 onwards
+        #return [self].append(super().stage(*args, **kwargs))
+        ## The below line is being tried on 20260320 to avoid potential errors with the above line.
+        ## TODO: Once all issues are resolved, and images can be taken with the dark_frames_preprocessor_waxs active, test again the below line vs. the above line.
+        return [self] + super().stage(*args, **kwargs)
 
     def trigger(self, *args, **kwargs):
         # if(self.cam.sync.get() != 1):
@@ -236,6 +242,7 @@ class RSOXSGreatEyesDetector(SingleTriggerV33, GreatEyesDetector):
 
     def shutter(self):
         switch = {0: "disabled", 1: "enabled", 3: "unknown", 4: "unknown", 2: "enabled"}
+        ## TODO: why is 1 and 2 both enabled?  Are they a different kind of enabled?  Or do they correspond to SAXS vs. WAXS detectors?
         # return "Shutter is {}".format(switch[self.cam.sync.get()])
         return "Shutter is {}".format(switch[self.cam.shutter_mode.get()])
         # return ('Shutter is {}'.format(switch[self.cam.shutter_mode.get()]))

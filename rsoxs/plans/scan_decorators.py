@@ -3,7 +3,7 @@ from nbs_bl.utils import merge_func
 import bluesky.plan_stubs as bps
 from functools import partial
 from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
-from nbs_bl.hw import shutter_control, shutter_open_time, shutter_y, en #waxs_det
+from nbs_bl.hw import shutter_control, shutter_open_time, shutter_y, en#, waxs_det
 from bluesky.preprocessors import finalize_wrapper
 
 #from nbs_bl.beamline import GLOBAL_BEAMLINE
@@ -90,7 +90,7 @@ def rsoxs_waxs_decorator(func):
                         ).wait()  ## Intended to only count signal when shutter is open, but will not go below exposure time = 0.3
                     else:
                         print("Invalid time, exposure time not set")
-
+            
             old_n_exp = waxs_det.number_exposures
             waxs_det.number_exposures = n_exposures
             _extra_dets = [waxs_det]

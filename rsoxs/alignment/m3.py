@@ -12,6 +12,7 @@ from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
 from nbs_bl.hw import (
     en,
     mir3,
+    slitc_cam,
 )
 
 import bluesky.plan_stubs as bps
@@ -80,7 +81,7 @@ def m3_sweep(
             energies_250grating_default,
             np.arange(1100, 2100, 100)
         ))
-        energies = energies_1200grating_default
+        energies = energies_250grating_default
     if m3_xs is None:
         m3_xs = np.arange(24, 24.5, 0.05)
     if m3_pitches is None:
@@ -106,7 +107,9 @@ def m3_sweep(
             for m3_x in m3_xs:
                 print("Setting M3 x = " + str(m3_x))
                 yield from bps.mv(mir3.x, m3_x)
-                yield from nbs_list_scan(mir3.pitch, m3_pitches)
+                yield from nbs_list_scan(mir3.pitch, m3_pitches, 
+                                         #extra_dets=[slitc_cam]
+                                         )
 
 
     ## Restore old settings

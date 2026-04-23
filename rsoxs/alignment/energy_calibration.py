@@ -380,8 +380,10 @@ def correct_m2_pgm_offsets(
 
 def energy_resolution_series(
      sample_id = "HOPG",
-     energy_parameters = "carbon_NEXAFS_slow",
-     slit1_vsizes = None,     
+     energy_parameters = "carbon_NEXAFS",
+     slit1_vsizes = None, 
+     cffs = [1.5],  
+     **kwargs,  
 ):
     """
     This series is especially helpful when selecting slits1.vsize to balance beam flux and energy resolution.
@@ -394,18 +396,22 @@ def energy_resolution_series(
     if isinstance(energy_parameters, str):
          energy_parameters = energy_list_parameters[energy_parameters]
     if slit1_vsizes is None:
+         slit1_vsizes = [0.01, 0.02, 0.04, 0.1, 0.2, 0.4] 
+         """
+         ## For more thorough characterization.  Try to run this with carbon_NEXAFS_slow energy parameters.
          slit1_vsizes = np.concatenate((
                 np.arange(10, 1, -0.5),
                 np.arange(1, 0.1, -0.05), ## Requires gain to be adjusted for SRS570s
                 np.arange(0.1, 0.005, -0.005),
         ))
-         #slit1_vsizes = [0.01, 0.02, 0.04, 0.1, 0.2, 0.4] ## For quicker check
+        """
+         ### For quicker check
 
 
     print("Starting energy resolution series")
     
     ## Start and end at safe configuraiton like WAXSNEXAFS
-    #yield from load_configuration("WAXSNEXAFS")
+    yield from load_configuration("DM7NEXAFS")
 
     ## Set polarization
     yield from set_polarization(90)
@@ -422,21 +428,27 @@ def energy_resolution_series(
     ## Load sample at the desired angle
     print("Loading sample: " + str(sample_id))
     yield from load_samp(sample_id)
-    #yield from rotate_now(20)
+    yield from rotate_now(20)
 
-    for slit1_vsize in slit1_vsizes:
-        print("Slits 1 vsize = " + str(slit1_vsize))
-        yield from bps.mv(slits1.vsize, slit1_vsize)
-        yield from nbs_energy_scan(
-                                    *energy_parameters,
-                                    use_2d_detector=False, 
-                                    dwell=1,
-                                    n_exposures=1, 
-                                    group_name="EnergyResolutionSeries",
-                                    )
+    for cff in cffs:
+        print("CFF = " + str(cff))
+        yield from bps.mv(en.monoen.cff, cff)
+        for slit1_vsize in slit1_vsizes:
+            print("Slits 1 vsize = " + str(slit1_vsize))
+            yield from bps.mv(slits1.vsize, slit1_vsize)
+            yield from nbs_energy_scan(
+                                        *energy_parameters,
+                                        use_2d_detector=False, 
+                                        dwell=1,
+                                        n_exposures=1, 
+                                        group_name="EnergyResolutionSeries",
+                                        **kwargs,
+                                        )
 
 
-    yield from load_configuration("WAXSNEXAFS")
+    ## End in safe/default configuration
+    yield from bps.mv(en.monoen.cff, 1.5)
+    yield from load_configuration("DM7NEXAFS")
 
 
 
