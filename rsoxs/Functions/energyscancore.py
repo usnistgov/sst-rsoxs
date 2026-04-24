@@ -444,68 +444,6 @@ def new_en_scan_core(
 
 
 
-def flyer_scan_energy(scan_params, md={},locked=True,polarization=0):
-    ## TODO: Don't use this function until set_exposure has been restored
-    """
-    Specific scan for SST-1 monochromator fly scan, while catching up with the undulator
-
-    scan proceeds as:
-    1.) set up the flying parameters in the monochromator
-    2.) move to the starting position in both undulator and monochromator
-    3.) begin the scan (take baseline, begin monitors)
-    4.) read the current mono readback
-    5.) set the undulator to move to the corresponding position
-    6.) if the mono is still running (not at end position), return to step 4
-    7.) if the mono is done, load the next parameters and start at step 1
-    8.) if no more parameters, end the scan
-
-    Parameters
-    ----------
-    scan_params : a list of tuples consisting of:
-        (start_en : eV to begin the scan,
-        stop_en : eV to stop the scan,
-        speed_en : eV / second to move the monochromator)
-        the stop energy of each tuple should match the start of the next to make a continuous scan
-            although this is not strictly enforced to allow for flexibility
-    pol : polarization to run the scan
-    grating : grating to run the scan
-    md : dict, optional
-        metadata
-
-    """
-    detectors = [beamstop_waxs,  izero_mesh, Sample_TEY_int]
-
-
-    _md = {
-        "detectors": [detector.name for detector in detectors],
-        "motors": [en.name],
-        "plan_name": "flyer_scan_energy",
-        "hints": {},
-    }
-    _md.update(md or {})
-    flyers = [d for d in detectors + [en] if isinstance(d, Flyable)]
-    readers = [d for d in detectors + [en] if isinstance(d, Readable)]
-    #for reader in readers:
-        ## TODO: Don't use this function until set_exposure has been restored
-        #if hasattr(reader,'set_exposure'):
-        #    reader.set_exposure(0.5)
-
-    en.preflight(*scan_params,locked=locked,time_resolution=0.5)
-
-    @bpp.stage_decorator(readers)
-    @bpp.run_decorator(md=_md)
-    def inner_flyscan():
-        status = en.fly()
-
-        while not status.done:
-            yield from trigger_and_read(readers)
-
-        en.land()
-
-    return (yield from flystream_during_wrapper(inner_flyscan(), flyers,stream=False))
-
-
-
 
 
 
