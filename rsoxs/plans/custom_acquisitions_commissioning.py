@@ -1091,7 +1091,23 @@ def do_cdsaxs(energies, samples):
     for samp in samples:
         yield from load_samp(samp)
         yield from bps.mv(sam_Th,-70)
-        yield from do_rsoxs(edge=energies,frames=1,exposure=.1,md={'plan_name':f'CD_20deg'})
+        #yield from do_rsoxs(edge=energies,frames=1,exposure=.1,md={'plan_name':f'CD_20deg'})
+        ## TODO: Below needs testing, but getting rid of do_rsoxs
+        
+        ## Creating energy parameters list that works with nbs scans
+        energy_parameters = [energies[0]]
+        for energy in energies[1:]:
+            energy_parameters.extend([
+                (energy - energy_parameters[-1]), ## Step size
+                energy, ## Energy region end point
+            ])
+
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            use_2d_detector = True,
+            dwell = 0.1,
+            comment = f'CD_20deg',
+        )
 
 
 def do_just_rsoxs(energies, samples):
@@ -1102,12 +1118,30 @@ def do_just_rsoxs(energies, samples):
     for samp in samples:
         yield from load_samp(samp)
         yield from bps.mv(sam_Th, -70)
+        """
         yield from do_rsoxs(
             edge = energies, 
             frames = 1,
             exposure = 0.1,
             md = {"plan_name": f"CD_20deg", "RSoXS_Main_DET": "WAXS"},
             )
+        """
+        ## TODO: Below needs testing, but getting rid of do_rsoxs
+
+        ## Creating energy parameters list that works with nbs scans
+        energy_parameters = [energies[0]]
+        for energy in energies[1:]:
+            energy_parameters.extend([
+                (energy - energy_parameters[-1]), ## Step size
+                energy, ## Energy region end point
+            ])
+
+        yield from nbs_energy_scan(
+            *energy_parameters,
+            use_2d_detector = True,
+            dwell = 0.1,
+            comment = f'CD_20deg',
+        )
         
 
 def do_cdsaxs_position_sweep():

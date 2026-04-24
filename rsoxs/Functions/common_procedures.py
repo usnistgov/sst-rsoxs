@@ -50,7 +50,6 @@ from ..HW.detectors import set_exposure
 from nbs_bl.printing import run_report
 from nbs_bl.gGrEqns import get_mirror_grating_angles, find_best_offsets
 from .fly_alignment import fly_max
-from .rsoxs_plans import do_rsoxs
 
 run_report(__file__)
 
