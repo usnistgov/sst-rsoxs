@@ -125,33 +125,7 @@ def rsoxs_step_scan(*args, extra_dets=[], n_exposures=1, **kwargs):
     yield from variable_energy_scan(*args, extra_dets=_extra_dets, per_step=rsoxs_per_step, **kwargs)
     waxs_det.number_exposures = old_n_exp
 
-@merge_func(nbs_list_scan, use_func_name=False, omit_params=["*args"])
-def energy_step_scan(energies, **kwargs):
-    yield from bps.mv(shutter_control, 1)
-    yield from finalize_wrapper(
-        plan = nbs_list_scan(en.energy, energies, **kwargs),
-        final_plan= post_scan_hardware_reset()
-    )
 
-def step_scan_energy(
-    energies=None,
-    detectors=None,
-    exposure_times=None,
-):
-## A generic energy step sweep that can be applied to both RSoXS and NEXAFS based on what detectors are provided  
-    yield from bps.mv(shutter_control, 1) ## Open the shutter
-    """
-    yield from finalize_wrapper(
-        plan = bp.list_scan(
-            detectors=detectors,
-            en.energy, energies,
-            for detector in detectors: 
-                pass
-                # detector.exposure_time, exposure_times
-        ),
-        final_plan = post_scan_hardware_reset()
-    )
-    """
 
 
 def post_scan_hardware_reset():
