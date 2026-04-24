@@ -11,7 +11,7 @@ from nbs_bl.hw import (
     tem_tempstage,
 )
 from ..HW.signals import High_Gain_diode_i400, setup_diode_i400
-from .energyscancore import NEXAFS_fly_scan_core, new_en_scan_core
+from .energyscancore import new_en_scan_core
 from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
 from ..HW.slackbot import rsoxs_bot
 
@@ -95,8 +95,6 @@ def run_queue_step(step):
         # use the motors look up table above to get the motor object by name
     if step["action"] == "spiral_scan_core":
         return (yield from spiralsearch(**step["kwargs"])) #return (yield from spiralsearch(**step["kwargs"]))
-    if step["action"] == "nexafs_scan_core":
-        return (yield from NEXAFS_fly_scan_core(**step["kwargs"]))
     if step["action"] == "rsoxs_scan_core":
         return (yield from new_en_scan_core(**step["kwargs"]))
     if step["acq_index"] < 1:
