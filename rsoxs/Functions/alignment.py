@@ -47,7 +47,7 @@ from ..HW.detectors import set_exposure  # , saxs_det
 from ..HW.energy import en, set_polarization, grating_to_1200, grating_to_250, grating_to_rsoxs
 from nbs_bl.printing import run_report, boxed_text, colored
 from ..HW.slackbot import rsoxs_bot
-from .common_functions import args_to_string
+
 
 from .per_steps import take_exposure_corrected_reading, one_nd_sticky_exp_step
 
