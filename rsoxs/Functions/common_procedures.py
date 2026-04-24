@@ -49,6 +49,9 @@ from ..HW.detectors import set_exposure
 # from ..startup import bec
 from nbs_bl.printing import run_report
 from nbs_bl.gGrEqns import get_mirror_grating_angles, find_best_offsets
+
+## TODO: Migrate to Jamie's fly_max.  Check that parameters are the same.
+## After that, can delete entire fly_alignment.py file that's in Functions
 from .fly_alignment import fly_max
 
 run_report(__file__)
@@ -119,6 +122,8 @@ def buildeputable(
             flip = False
         
         yield from bps.mv(mono_en, energy,en.scanlock, False,epu_gap,startgap)
+        
+        ## Below is Eliot's old fly_max
         yield from fly_max(
             [izero_mesh, beamstop_waxs],
             [
@@ -135,6 +140,7 @@ def buildeputable(
             peaklist,
             end_on_max=False
         )
+
         startinggap = peaklist[-1]["RSoXS Au Mesh Current"]["en_epugap"]
         gapbs = peaklist[-1]["WAXS Beamstop"]["en_epugap"]
         height = peaklist[-1]["RSoXS Au Mesh Current"]["RSoXS Au Mesh Current"]

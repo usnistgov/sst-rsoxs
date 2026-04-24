@@ -108,7 +108,7 @@ def run_acquisitions_single(
         yield from load_samp(
             sample_id_or_index = acquisition[parameter], 
             dryrun = dryrun,
-            ) ## TODO: what is the difference between load_sample (loads from dict) and load_samp(loads from id or number)?  Can they be consolidated?
+            ) 
         
 
     ## TODO: set temperature if needed, but this is lowest priority
