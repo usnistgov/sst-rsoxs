@@ -11,7 +11,7 @@ from nbs_bl.hw import (
     tem_tempstage,
 )
 from ..HW.signals import High_Gain_diode_i400, setup_diode_i400
-from .energyscancore import NEXAFS_fly_scan_core, new_en_scan_core, NEXAFS_step_scan_core
+from .energyscancore import NEXAFS_fly_scan_core, new_en_scan_core
 from nbs_bl.beamline import GLOBAL_BEAMLINE as bl
 from ..HW.slackbot import rsoxs_bot
 
@@ -55,7 +55,6 @@ actions = {
     "diode_low",  # set diodes range setting to low
     "diode_high",  # set diode range setting to high
     "nexafs_scan_core",  # high level run a single NEXAFS scan
-    "nexafs_step_scan_core",  # high level run a single step-based NEXAFS scan
     "error",  # raise an error - should never get here.
 }
 motors = {"temp_ramp_rate": tem_tempstage.ramp_rate}
@@ -98,8 +97,6 @@ def run_queue_step(step):
         return (yield from spiralsearch(**step["kwargs"])) #return (yield from spiralsearch(**step["kwargs"]))
     if step["action"] == "nexafs_scan_core":
         return (yield from NEXAFS_fly_scan_core(**step["kwargs"]))
-    if step["action"] == "nexafs_step_scan_core":
-        return (yield from NEXAFS_step_scan_core(**step["kwargs"]))
     if step["action"] == "rsoxs_scan_core":
         return (yield from new_en_scan_core(**step["kwargs"]))
     if step["acq_index"] < 1:
